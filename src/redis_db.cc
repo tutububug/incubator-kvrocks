@@ -23,16 +23,15 @@
 #include <ctime>
 #include <map>
 #include "rocksdb/iterator.h"
-#include "server.h"
-#include "util.h"
 #include "db_util.h"
+#include "lock_manager.h"
 
 namespace Redis {
 
-Database::Database(Engine::Storage *storage, const std::string &ns) {
-  storage_ = storage;
-  metadata_cf_handle_ = storage->GetCFHandle("metadata");
-  db_ = storage->GetDB();
+Database::Database(rocksdb::DB *storage, const std::string &ns) {
+  storage_ = new Storage(storage);
+  db_ = storage;
+// TODO  metadata_cf_handle_ = storage->GetCFHandle("metadata");
   namespace_ = ns;
 }
 
@@ -98,7 +97,7 @@ rocksdb::Status Database::Expire(const Slice &user_key, int timestamp) {
   WriteBatchLogData log_data(kRedisNone, {std::to_string(kRedisCmdExpire)});
   batch.PutLogData(log_data.Encode());
   batch.Put(metadata_cf_handle_, ns_key, Slice(buf, value.size()));
-  s = storage_->Write(rocksdb::WriteOptions(), &batch);
+  s = storage_->GetDB()->Write(rocksdb::WriteOptions(), &batch);
   delete[]buf;
   return s;
 }
@@ -116,7 +115,7 @@ rocksdb::Status Database::Del(const Slice &user_key) {
   if (metadata.Expired()) {
     return rocksdb::Status::NotFound(kErrMsgKeyExpired);
   }
-  return storage_->Delete(rocksdb::WriteOptions(), metadata_cf_handle_, ns_key);
+  return storage_->GetDB()->Delete(rocksdb::WriteOptions(), metadata_cf_handle_, ns_key);
 }
 
 rocksdb::Status Database::Exists(const std::vector<Slice> &keys, int *ret) {
@@ -161,68 +160,69 @@ void Database::GetKeyNumStats(const std::string &prefix, KeyNumStats *stats) {
   Keys(prefix, nullptr, stats);
 }
 
-void Database::Keys(std::string prefix, std::vector<std::string> *keys, KeyNumStats *stats) {
-  uint16_t slot_id = 0;
-  std::string ns_prefix, ns, user_key, value;
-  if (namespace_ != kDefaultNamespace || keys != nullptr) {
-    if (storage_->IsSlotIdEncoded()) {
-      ComposeNamespaceKey(namespace_, "", &ns_prefix, false);
-      if (!prefix.empty()) {
-        PutFixed16(&ns_prefix, slot_id);
-        ns_prefix.append(prefix);
-      }
-    } else {
-      AppendNamespacePrefix(prefix, &ns_prefix);
-    }
-  }
-
-  uint64_t ttl_sum = 0;
-  LatestSnapShot ss(db_);
-  rocksdb::ReadOptions read_options;
-  read_options.snapshot = ss.GetSnapShot();
-  read_options.fill_cache = false;
-  auto iter = DBUtil::UniqueIterator(db_, read_options, metadata_cf_handle_);
-
-  while (true) {
-    ns_prefix.empty() ? iter->SeekToFirst() : iter->Seek(ns_prefix);
-    for (; iter->Valid(); iter->Next()) {
-      if (!ns_prefix.empty() && !iter->key().starts_with(ns_prefix)) {
-        break;
-      }
-      Metadata metadata(kRedisNone, false);
-      value = iter->value().ToString();
-      metadata.Decode(value);
-      if (metadata.Expired()) {
-        if (stats) stats->n_expired++;
-        continue;
-      }
-      if (stats) {
-        int32_t ttl = metadata.TTL();
-        stats->n_key++;
-        if (ttl != -1) {
-          stats->n_expires++;
-          if (ttl > 0) ttl_sum += ttl;
-        }
-      }
-      if (keys) {
-        ExtractNamespaceKey(iter->key(), &ns, &user_key, storage_->IsSlotIdEncoded());
-        keys->emplace_back(user_key);
-      }
-    }
-
-    if (!storage_->IsSlotIdEncoded()) break;
-    if (prefix.empty()) break;
-    if (++slot_id >= HASH_SLOTS_SIZE) break;
-
-    ComposeNamespaceKey(namespace_, "", &ns_prefix, false);
-    PutFixed16(&ns_prefix, slot_id);
-    ns_prefix.append(prefix);
-  }
-
-  if (stats && stats->n_expires > 0) {
-    stats->avg_ttl = ttl_sum / stats->n_expires;
-  }
-}
+// TODO
+//void Database::Keys(std::string prefix, std::vector<std::string> *keys, KeyNumStats *stats) {
+//  uint16_t slot_id = 0;
+//  std::string ns_prefix, ns, user_key, value;
+//  if (namespace_ != kDefaultNamespace || keys != nullptr) {
+//    if (storage_->IsSlotIdEncoded()) {
+//      ComposeNamespaceKey(namespace_, "", &ns_prefix, false);
+//      if (!prefix.empty()) {
+//        PutFixed16(&ns_prefix, slot_id);
+//        ns_prefix.append(prefix);
+//      }
+//    } else {
+//      AppendNamespacePrefix(prefix, &ns_prefix);
+//    }
+//  }
+//
+//  uint64_t ttl_sum = 0;
+//  LatestSnapShot ss(db_);
+//  rocksdb::ReadOptions read_options;
+//  read_options.snapshot = ss.GetSnapShot();
+//  read_options.fill_cache = false;
+//  auto iter = DBUtil::UniqueIterator(db_, read_options, metadata_cf_handle_);
+//
+//  while (true) {
+//    ns_prefix.empty() ? iter->SeekToFirst() : iter->Seek(ns_prefix);
+//    for (; iter->Valid(); iter->Next()) {
+//      if (!ns_prefix.empty() && !iter->key().starts_with(ns_prefix)) {
+//        break;
+//      }
+//      Metadata metadata(kRedisNone, false);
+//      value = iter->value().ToString();
+//      metadata.Decode(value);
+//      if (metadata.Expired()) {
+//        if (stats) stats->n_expired++;
+//        continue;
+//      }
+//      if (stats) {
+//        int32_t ttl = metadata.TTL();
+//        stats->n_key++;
+//        if (ttl != -1) {
+//          stats->n_expires++;
+//          if (ttl > 0) ttl_sum += ttl;
+//        }
+//      }
+//      if (keys) {
+//        ExtractNamespaceKey(iter->key(), &ns, &user_key, storage_->IsSlotIdEncoded());
+//        keys->emplace_back(user_key);
+//      }
+//    }
+//
+//    if (!storage_->IsSlotIdEncoded()) break;
+//    if (prefix.empty()) break;
+//    if (++slot_id >= HASH_SLOTS_SIZE) break;
+//
+//    ComposeNamespaceKey(namespace_, "", &ns_prefix, false);
+//    PutFixed16(&ns_prefix, slot_id);
+//    ns_prefix.append(prefix);
+//  }
+//
+//  if (stats && stats->n_expires > 0) {
+//    stats->avg_ttl = ttl_sum / stats->n_expires;
+//  }
+//}
 
 rocksdb::Status Database::Scan(const std::string &cursor,
                          uint64_t limit,
@@ -349,7 +349,7 @@ rocksdb::Status Database::FlushDB() {
   if (!s.ok()) {
     return rocksdb::Status::OK();
   }
-  s = storage_->DeleteRange(begin_key, end_key);
+  s = storage_->GetDB()->DeleteRange(begin_key, end_key);
   if (!s.ok()) {
     return s;
   }
@@ -511,7 +511,7 @@ rocksdb::Status Database::ClearKeysOfSlot(const rocksdb::Slice &ns, int slot) {
   std::string prefix, prefix_end;
   ComposeSlotKeyPrefix(ns, slot, &prefix);
   ComposeSlotKeyPrefix(ns, slot + 1, &prefix_end);
-  auto s = storage_->DeleteRange(prefix, prefix_end);
+  auto s = storage_->GetDB()->DeleteRange(prefix, prefix_end);
   if (!s.ok()) {
     return s;
   }

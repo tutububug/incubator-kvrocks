@@ -24,14 +24,40 @@
 #include <vector>
 #include <utility>
 #include <map>
+#include <rocksdb/db.h>
 
 #include "redis_metadata.h"
-#include "storage.h"
+#include "status.h"
+#include "lock_manager.h"
 
 namespace Redis {
+
+class Storage {
+public:
+    Storage(rocksdb::DB *db): db_(db) {
+        lock_mgr_ = new LockManager(16);
+    }
+    ~Storage() {
+        db_->Close();
+        delete lock_mgr_;
+    }
+
+    Storage() = delete;
+    Storage(const Storage& s) = delete;
+    Storage& operator=(const Storage& s) = delete;
+
+public:
+    LockManager* GetLockManager() { return lock_mgr_; }
+    rocksdb::DB* GetDB() { return db_; }
+
+private:
+    rocksdb::DB* db_;
+    LockManager* lock_mgr_;
+};
+
 class Database {
  public:
-  explicit Database(Engine::Storage *storage, const std::string &ns = "");
+  explicit Database(rocksdb::DB *storage, const std::string &ns = "");
   rocksdb::Status GetMetadata(RedisType type, const Slice &ns_key, Metadata *metadata);
   rocksdb::Status GetRawMetadata(const Slice &ns_key, std::string *bytes);
   rocksdb::Status GetRawMetadataByUserKey(const Slice &user_key, std::string *bytes);
@@ -64,7 +90,7 @@ class Database {
                                   int count);
 
  protected:
-  Engine::Storage *storage_;
+  Storage *storage_;
   rocksdb::DB *db_;
   rocksdb::ColumnFamilyHandle *metadata_cf_handle_;
   std::string namespace_;
@@ -86,7 +112,7 @@ class Database {
 
 class SubKeyScanner : public Redis::Database {
  public:
-  explicit SubKeyScanner(Engine::Storage *storage, const std::string &ns)
+  explicit SubKeyScanner(rocksdb::DB *storage, const std::string &ns)
       : Database(storage, ns) {}
   rocksdb::Status Scan(RedisType type,
                        const Slice &user_key,

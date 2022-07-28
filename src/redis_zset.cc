@@ -113,7 +113,7 @@ rocksdb::Status ZSet::Add(const Slice &user_key, uint8_t flags, std::vector<Memb
     metadata.Encode(&bytes);
     batch.Put(metadata_cf_handle_, ns_key, bytes);
   }
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->GetDB()->Write(rocksdb::WriteOptions(), &batch);
 }
 
 rocksdb::Status ZSet::Card(const Slice &user_key, int *ret) {
@@ -204,7 +204,7 @@ rocksdb::Status ZSet::Pop(const Slice &user_key, int count, bool min, std::vecto
     metadata.Encode(&bytes);
     batch.Put(metadata_cf_handle_, ns_key, bytes);
   }
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->GetDB()->Write(rocksdb::WriteOptions(), &batch);
 }
 
 rocksdb::Status ZSet::Range(const Slice &user_key, int start, int stop, uint8_t flags, std::vector<MemberScore>
@@ -280,7 +280,7 @@ rocksdb::Status ZSet::Range(const Slice &user_key, int start, int stop, uint8_t 
     std::string bytes;
     metadata.Encode(&bytes);
     batch.Put(metadata_cf_handle_, ns_key, bytes);
-    return storage_->Write(rocksdb::WriteOptions(), &batch);
+    return storage_->GetDB()->Write(rocksdb::WriteOptions(), &batch);
   }
   return rocksdb::Status::OK();
 }

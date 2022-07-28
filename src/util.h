@@ -32,7 +32,6 @@
 #include <chrono>
 
 #include "status.h"
-#include "solarisfixes.h"
 
 namespace Util {
 // sock util
