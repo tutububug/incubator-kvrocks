@@ -25,6 +25,7 @@
 #include "rocksdb/iterator.h"
 #include "db_util.h"
 #include "lock_manager.h"
+#include "util.h"
 
 namespace Redis {
 
@@ -97,7 +98,7 @@ rocksdb::Status Database::Expire(const Slice &user_key, int timestamp) {
   WriteBatchLogData log_data(kRedisNone, {std::to_string(kRedisCmdExpire)});
   batch.PutLogData(log_data.Encode());
   batch.Put(metadata_cf_handle_, ns_key, Slice(buf, value.size()));
-  s = storage_->GetDB()->Write(rocksdb::WriteOptions(), &batch);
+  s = storage_->Write(rocksdb::WriteOptions(), &batch);
   delete[]buf;
   return s;
 }
@@ -115,7 +116,7 @@ rocksdb::Status Database::Del(const Slice &user_key) {
   if (metadata.Expired()) {
     return rocksdb::Status::NotFound(kErrMsgKeyExpired);
   }
-  return storage_->GetDB()->Delete(rocksdb::WriteOptions(), metadata_cf_handle_, ns_key);
+  return storage_->Delete(rocksdb::WriteOptions(), metadata_cf_handle_, ns_key);
 }
 
 rocksdb::Status Database::Exists(const std::vector<Slice> &keys, int *ret) {
@@ -349,7 +350,7 @@ rocksdb::Status Database::FlushDB() {
   if (!s.ok()) {
     return rocksdb::Status::OK();
   }
-  s = storage_->GetDB()->DeleteRange(begin_key, end_key);
+  s = storage_->DeleteRange(begin_key, end_key);
   if (!s.ok()) {
     return s;
   }
@@ -511,7 +512,7 @@ rocksdb::Status Database::ClearKeysOfSlot(const rocksdb::Slice &ns, int slot) {
   std::string prefix, prefix_end;
   ComposeSlotKeyPrefix(ns, slot, &prefix);
   ComposeSlotKeyPrefix(ns, slot + 1, &prefix_end);
-  auto s = storage_->GetDB()->DeleteRange(prefix, prefix_end);
+  auto s = storage_->DeleteRange(prefix, prefix_end);
   if (!s.ok()) {
     return s;
   }

@@ -103,7 +103,7 @@ rocksdb::Status String::updateRawValue(const std::string &ns_key, const std::str
   WriteBatchLogData log_data(kRedisString);
   batch.PutLogData(log_data.Encode());
   batch.Put(metadata_cf_handle_, ns_key, raw_value);
-  return storage_->GetDB()->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->Write(rocksdb::WriteOptions(), &batch);
 }
 
 rocksdb::Status String::Append(const std::string &user_key, const std::string &value, int *ret) {
@@ -347,7 +347,7 @@ rocksdb::Status String::MSet(const std::vector<StringPair> &pairs, int ttl) {
     AppendNamespacePrefix(pair.key, &ns_key);
     batch.Put(metadata_cf_handle_, ns_key, bytes);
     LockGuard guard(storage_->GetLockManager(), ns_key);
-    auto s = storage_->GetDB()->Write(rocksdb::WriteOptions(), &batch);
+    auto s = storage_->Write(rocksdb::WriteOptions(), &batch);
     if (!s.ok()) return s;
   }
   return rocksdb::Status::OK();
@@ -463,7 +463,7 @@ rocksdb::Status String::CAD(const std::string &user_key, const std::string &valu
 
   if (value == current_value) {
     auto delete_status = storage_->Delete(rocksdb::WriteOptions(),
-                                          storage_->GetCFHandle(Engine::kMetadataColumnFamilyName),
+                                          storage_->GetCFHandle("metadata"),
                                           ns_key);
     if (!delete_status.ok()) {
       return s;
