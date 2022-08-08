@@ -67,6 +67,13 @@ class Database {
                                   std::vector<std::string> *keys,
                                   int count);
 
+protected:
+    // TODO redis key format:
+    // user_key | [cf_code|key_type|value_type] | key_obj : value_obj
+    rocksdb::Status DbGet(const std::string& key,
+                          const std::string& cf_suffix,
+                          std::string* value) {}
+
  protected:
   rockdis::Storage *storage_;
   rocksdb::DB *db_;

@@ -20,10 +20,6 @@
 
 #include <gtest/gtest.h>
 
-//Server *GetServer() {
-//  return nullptr;
-//}
-
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
