@@ -89,7 +89,7 @@ namespace Redis {
 
 class ZSet : public SubKeyScanner {
  public:
-  explicit ZSet(rocksdb::DB* storage, const std::string &ns) :
+  explicit ZSet(rockdis::Storage* storage, const std::string &ns) :
       SubKeyScanner(storage, ns) {}
 // TODO     score_cf_handle_(storage->GetCFHandle("zset_score")) {}
   rocksdb::Status Add(const Slice &user_key, uint8_t flags, std::vector<MemberScore> *mscores, int *ret);

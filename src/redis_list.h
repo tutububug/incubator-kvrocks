@@ -31,7 +31,7 @@
 namespace Redis {
 class List : public Database {
  public:
-  explicit List(Engine::Storage *storage, const std::string &ns) : Database(storage, ns) {}
+  explicit List(rockdis::Storage* storage, const std::string &ns) : Database(storage, ns) {}
   rocksdb::Status Size(const Slice &user_key, uint32_t *ret);
   rocksdb::Status Trim(const Slice &user_key, int start, int stop);
   rocksdb::Status Set(const Slice &user_key, int index, Slice elem);

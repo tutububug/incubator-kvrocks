@@ -21,19 +21,23 @@
 #include <gtest/gtest.h>
 
 #include "config.h"
-#include "storage.h"
+#include "store.h"
 #include "redis_metadata.h"
 #include "redis_hash.h"
 #include "redis_zset.h"
+#include "util.h"
 
 TEST(Compact, Filter) {
-  Config config;
-  config.db_dir = "compactdb";
-  config.backup_dir = "compactdb/backup";
-  config.slot_id_encoded = false;
+  rocksdb::Options options;
+  options.IncreaseParallelism();
+  options.OptimizeLevelStyleCompaction();
+  options.create_if_missing = true;
 
-  auto storage_ = Util::MakeUnique<Engine::Storage>(&config);
-  Status s = storage_->Open();
+  rocksdb::DB* db;
+  rocksdb::DB::Open(options, "/tmp/compactdb", &db);
+
+  auto storage_ = Util::MakeUnique<rockdis::Storage>(db);
+  auto s = storage_->Open();
   assert(s.IsOK());
 
   int ret;
@@ -50,7 +54,6 @@ TEST(Compact, Filter) {
   auto status = storage_->Compact(nullptr, nullptr);
   assert(status.ok());
 
-  rocksdb::DB *db = storage_->GetDB();
   rocksdb::ReadOptions read_options;
   read_options.snapshot = db->GetSnapshot();
   read_options.fill_cache = false;

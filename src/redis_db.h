@@ -29,61 +29,13 @@
 #include "redis_metadata.h"
 #include "status.h"
 #include "lock_manager.h"
+#include "store.h"
 
 namespace Redis {
 
-class Storage {
-public:
-    Storage(rocksdb::DB *db): db_(db) {
-        lock_mgr_ = new LockManager(16);
-    }
-    ~Storage() {
-        db_->Close();
-        delete lock_mgr_;
-    }
-
-    Storage() = delete;
-    Storage(const Storage& s) = delete;
-    Storage& operator=(const Storage& s) = delete;
-
-public:
-    LockManager* GetLockManager() { return lock_mgr_; }
-    rocksdb::DB* GetDB() { return db_; }
-    bool IsSlotIdEncoded() { return false; }
-    rocksdb::ColumnFamilyHandle* GetCFHandle(const std::string& str) { return nullptr; } // TODO
-
-public:
-    rocksdb::Status Write(const rocksdb::WriteOptions& options, rocksdb::WriteBatch* updates) {
-        return db_->Write(options, updates);
-    }
-    rocksdb::Status Delete(const rocksdb::WriteOptions& options,
-                           rocksdb::ColumnFamilyHandle* column_family,
-                           const Slice& key) {
-        return db_->Delete(options, column_family, key);
-    }
-    rocksdb::Status DeleteRange(const Slice& first_key, const Slice& last_key) {
-        rocksdb::WriteBatch batch;
-        rocksdb::ColumnFamilyHandle *cf_handle = GetCFHandle("metadata");
-        auto s = batch.DeleteRange(cf_handle, first_key, last_key);
-        if (!s.ok()) {
-            return s;
-        }
-        s = batch.Delete(cf_handle, last_key);
-        if (!s.ok()) {
-            return s;
-        }
-        return Write(rocksdb::WriteOptions(), &batch);
-    }
-
-private:
-    rocksdb::DB* db_;
-    LockManager* lock_mgr_;
-    std::vector<rocksdb::ColumnFamilyHandle *> cf_handles_; // TODO
-};
-
 class Database {
  public:
-  explicit Database(rocksdb::DB *storage, const std::string &ns = "");
+  explicit Database(rockdis::Storage* storage, const std::string &ns = "");
   rocksdb::Status GetMetadata(RedisType type, const Slice &ns_key, Metadata *metadata);
   rocksdb::Status GetRawMetadata(const Slice &ns_key, std::string *bytes);
   rocksdb::Status GetRawMetadataByUserKey(const Slice &user_key, std::string *bytes);
@@ -116,7 +68,7 @@ class Database {
                                   int count);
 
  protected:
-  Storage *storage_;
+  rockdis::Storage *storage_;
   rocksdb::DB *db_;
   rocksdb::ColumnFamilyHandle *metadata_cf_handle_;
   std::string namespace_;
@@ -138,7 +90,7 @@ class Database {
 
 class SubKeyScanner : public Redis::Database {
  public:
-  explicit SubKeyScanner(rocksdb::DB *storage, const std::string &ns)
+  explicit SubKeyScanner(rockdis::Storage *storage, const std::string &ns)
       : Database(storage, ns) {}
   rocksdb::Status Scan(RedisType type,
                        const Slice &user_key,

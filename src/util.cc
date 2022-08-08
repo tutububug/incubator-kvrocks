@@ -33,8 +33,6 @@
 #include <math.h>
 #include <string>
 #include <algorithm>
-#include <event2/util.h>
-#include <event2/buffer.h>
 #include <glog/logging.h>
 #ifdef __linux__
 #include <sys/sendfile.h>
@@ -43,7 +41,6 @@
 
 #include "util.h"
 #include "status.h"
-#include "event_util.h"
 
 #ifndef POLLIN
 # define POLLIN      0x0001    /* There is data to read */
@@ -287,18 +284,18 @@ Status SockSetBlocking(int fd, int blocking) {
   return Status::OK();
 }
 
-Status SockReadLine(int fd, std::string *data) {
-  UniqueEvbuf evbuf;
-  if (evbuffer_read(evbuf.get(), fd, -1) <= 0) {
-    return Status(Status::NotOK, std::string("read response err: ") + strerror(errno));
-  }
-  UniqueEvbufReadln line(evbuf.get(), EVBUFFER_EOL_CRLF_STRICT);
-  if (!line) {
-    return Status(Status::NotOK, std::string("read response err(empty): ") + strerror(errno));
-  }
-  *data = std::string(line.get(), line.length);
-  return Status::OK();
-}
+//Status SockReadLine(int fd, std::string *data) {
+//  UniqueEvbuf evbuf;
+//  if (evbuffer_read(evbuf.get(), fd, -1) <= 0) {
+//    return Status(Status::NotOK, std::string("read response err: ") + strerror(errno));
+//  }
+//  UniqueEvbufReadln line(evbuf.get(), EVBUFFER_EOL_CRLF_STRICT);
+//  if (!line) {
+//    return Status(Status::NotOK, std::string("read response err(empty): ") + strerror(errno));
+//  }
+//  *data = std::string(line.get(), line.length);
+//  return Status::OK();
+//}
 
 int GetPeerAddr(int fd, std::string *addr, uint32_t *port) {
   addr->clear();

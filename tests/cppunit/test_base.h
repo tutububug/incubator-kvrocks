@@ -27,10 +27,15 @@
 class TestBase : public testing::Test {
 protected:
   explicit TestBase() {
-    config_ = new Config();
-    config_->db_dir = "testsdb";
-    config_->backup_dir = "testsdb/backup";
-    storage_ = new Engine::Storage(config_);
+    rocksdb::Options options;
+    options.IncreaseParallelism();
+    options.OptimizeLevelStyleCompaction();
+    options.create_if_missing = true;
+
+    rocksdb::DB* db;
+    rocksdb::DB::Open(options, "/tmp/testsdb", &db);
+
+    storage_ = new rockdis::Storage(db);
     Status s = storage_->Open();
     if (!s.IsOK()) {
       std::cout << "Failed to open the storage, encounter error: " << s.Msg() << std::endl;
@@ -44,7 +49,7 @@ protected:
   }
 
 protected:
-  Engine::Storage *storage_;
+  rockdis::Storage *storage_;
   Config *config_ = nullptr;
   std::string key_;
   std::vector<Slice> fields_;

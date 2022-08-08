@@ -37,7 +37,7 @@ const int STRING_HDR_SIZE = 5;
 
 class String : public Database {
  public:
-  explicit String(rocksdb::DB *storage, const std::string &ns) : Database(storage, ns) {}
+  explicit String(rockdis::Storage* storage, const std::string &ns) : Database(storage, ns) {}
   rocksdb::Status Append(const std::string &user_key, const std::string &value, int *ret);
   rocksdb::Status Get(const std::string &user_key, std::string *value);
   rocksdb::Status GetSet(const std::string &user_key, const std::string &new_value, std::string *old_value);
