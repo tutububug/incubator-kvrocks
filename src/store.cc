@@ -18,12 +18,12 @@ Status Storage::Open() {
 }
 
 rocksdb::Status Storage::Compact(const rocksdb::Slice *begin, const rocksdb::Slice *end) {
-    rocksdb::CompactRangeOptions compact_opts;
-    compact_opts.change_level = true;
-    for (const auto &cf_handle : cf_handles_) {
-        rocksdb::Status s = db_->CompactRange(compact_opts, cf_handle, begin, end);
-        if (!s.ok()) return s;
-    }
+//    rocksdb::CompactRangeOptions compact_opts;
+//    compact_opts.change_level = true;
+//    for (const auto &cf_handle : cf_handles_) {
+//        rocksdb::Status s = db_->CompactRange(compact_opts, cf_handle, begin, end);
+//        if (!s.ok()) return s;
+//    }
     return rocksdb::Status::OK();
 }
 
@@ -40,7 +40,6 @@ bool Storage::IsSlotIdEncoded() {
 }
 
 rocksdb::ColumnFamilyHandle* Storage::GetCFHandle(const std::string& str) {
-    // TODO
     return nullptr;
 }
 
@@ -48,10 +47,8 @@ rocksdb::Status Storage::Write(const rocksdb::WriteOptions& options, rocksdb::Wr
     return db_->Write(options, updates);
 }
 
-rocksdb::Status Storage::Delete(const rocksdb::WriteOptions& options,
-                                rocksdb::ColumnFamilyHandle* column_family,
-                                const rocksdb::Slice& key) {
-    return db_->Delete(options, column_family, key);
+rocksdb::Status Storage::Delete(const rocksdb::WriteOptions& options, const rocksdb::Slice& key) {
+    return db_->Delete(options, key);
 }
 
 rocksdb::Status Storage::DeleteRange(const rocksdb::Slice& first_key, const rocksdb::Slice& last_key) {

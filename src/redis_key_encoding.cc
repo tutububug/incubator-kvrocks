@@ -38,8 +38,8 @@
 
 namespace Redis {
 
-void reverseBytes(std::string& b);
-void reallocBytes(std::string& b, int n);
+void reverseBytes(std::string* b);
+void reallocBytes(std::string* b, int n);
 
 static const uint8_t encGroupSize = 8;
 static const uint8_t encMarker    = 0xFF;
@@ -58,7 +58,7 @@ static std::string* pads = new std::string('\0', encGroupSize);
 //   [1, 2, 3, 0] -> [1, 2, 3, 0, 0, 0, 0, 0, 251]
 //   [1, 2, 3, 4, 5, 6, 7, 8] -> [1, 2, 3, 4, 5, 6, 7, 8, 255, 0, 0, 0, 0, 0, 0, 0, 0, 247]
 // Refer: https://github.com/facebook/mysql-5.6/wiki/MyRocks-record-format#memcomparable-format
-void EncodeBytes(std::string& b, const std::string& data) {
+void EncodeBytes(std::string* b, const std::string& data) {
     // Allocate more space to avoid unnecessary slice growing.
     // Assume that the byte slice size is about `(len(data) / encGroupSize + 1) * (encGroupSize + 1)` bytes,
     // that is `(len(data) / 8 + 1) * 9` in our implement.
@@ -69,25 +69,26 @@ void EncodeBytes(std::string& b, const std::string& data) {
         auto remain = dLen - idx;
         auto padCount = 0;
         if (remain >= encGroupSize) {
-            b.append(std::begin(data)+idx, std::begin(data)+idx+encGroupSize-1);
+            b->append(std::string(std::begin(data)+idx, std::begin(data)+idx+encGroupSize-1));
         } else {
             padCount = encGroupSize - remain;
-            b.append(std::string(std::begin(data)+idx, std::end(data)));
-            b.append(std::string(std::begin(*pads), std::begin(*pads)+padCount-1));
+            b->append(std::string(std::begin(data)+idx, std::end(data)));
+            b->append(std::string(std::begin(*pads), std::begin(*pads)+padCount-1));
         }
 
         auto marker = encMarker - padCount;
-        b.push_back(marker);
+        b->push_back(marker);
     }
 }
 
-void decodeBytes(std::string& b, std::string* buf, bool reverse) {
+void decodeBytes(const std::string& b_in, size_t& off, std::string* buf, bool reverse) {
     if (buf == nullptr) {
-        buf = new std::string(b.size(), '\0');
+        buf = new std::string(b_in.size(), '\0');
     }
     buf->clear();
 
     while (true) {
+        auto b = std::string(std::begin(b_in)+off, std::end(b_in));
         if (b.size() < encGroupSize+1) {
             throw std::runtime_error("insufficient bytes to decode value");
         }
@@ -111,7 +112,7 @@ void decodeBytes(std::string& b, std::string* buf, bool reverse) {
 
         auto realGroupSize = encGroupSize - padCount;
         buf->append(std::string(std::begin(group), std::begin(group)+realGroupSize-1));
-        b = std::string(std::begin(b)+encGroupSize+1, std::end(b));
+        off += encGroupSize+1;
 
         if (padCount != 0) {
             auto padByte = encPad;
@@ -130,16 +131,15 @@ void decodeBytes(std::string& b, std::string* buf, bool reverse) {
         }
     }
     if (reverse) {
-        reverseBytes(*buf);
+        reverseBytes(buf);
     }
-    return;
 }
 
 // DecodeBytes decodes bytes which is encoded by EncodeBytes before,
 // returns the leftover bytes and decoded value if no error.
 // `buf` is used to buffer data to avoid the cost of makeslice in decodeBytes when DecodeBytes is called by Decoder.DecodeOne.
-void DecodeBytes(std::string& b, std::string* buf) {
-    return decodeBytes(b, buf, false);
+void DecodeBytes(const std::string& b, size_t& off, std::string* buf) {
+    return decodeBytes(b, off, buf, false);
 }
 
 void safeReverseBytes(std::string& b) {
@@ -153,10 +153,10 @@ void reverseBytes(std::string& b) {
 }
 
 // reallocBytes is like realloc.
-void reallocBytes(std::string& b, int n) {
-    auto newSize = b.size() + n;
-    if (b.capacity() < newSize) {
-        b.resize(newSize);
+void reallocBytes(std::string* b, int n) {
+    auto newSize = b->size() + n;
+    if (b->capacity() < newSize) {
+        b->resize(newSize);
     }
 }
 
@@ -183,7 +183,7 @@ uint64_t bigEndianUint64(const std::string& b) {
     static_cast<uint64_t>(b[0])<<56;
 }
 
-void bigEndianPutUint64(std::string& b, uint64_t v) {
+void bigEndianPutUint64(std::string* b, uint64_t v) {
     b[0] = static_cast<char>(v >> 56);
     b[1] = static_cast<char>(v >> 48);
     b[2] = static_cast<char>(v >> 40);
@@ -196,23 +196,23 @@ void bigEndianPutUint64(std::string& b, uint64_t v) {
 
 // EncodeInt appends the encoded value to slice b and returns the appended slice.
 // EncodeInt guarantees that the encoded value is in ascending order for comparison.
-void EncodeInt(std::string& b, int64_t v) {
+void EncodeInt(std::string* b, int64_t v) {
     auto data = std::string(8, '\0');
     auto u = EncodeIntToCmpUint(v);
     bigEndianPutUint64(b, u);
-    b.append(data);
+    b->append(data);
 }
 
 // DecodeInt decodes value encoded by EncodeInt before.
 // It returns the leftover un-decoded slice, decoded value if no error.
-int64_t DecodeInt(std::string& b, size_t& offset) {
+int64_t DecodeInt(const std::string& b, size_t& off) {
     if (b.size() < 8) {
         throw std::runtime_error("insufficient bytes to decode value");
     }
 
     auto u = bigEndianUint64(std::string(std::begin(b), std::begin(b)+7));
     auto v = DecodeCmpUintToInt(u);
-    offset += 8;
+    off += 8;
     return v;
 }
 

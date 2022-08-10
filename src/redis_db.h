@@ -35,7 +35,7 @@ namespace Redis {
 
 class Database {
  public:
-  explicit Database(rockdis::Storage* storage, const std::string &ns = "");
+  explicit Database(rockdis::Storage* storage, int64_t table_id);
   rocksdb::Status GetMetadata(RedisType type, const Slice &ns_key, Metadata *metadata);
   rocksdb::Status GetRawMetadata(const Slice &ns_key, std::string *bytes);
   rocksdb::Status GetRawMetadataByUserKey(const Slice &user_key, std::string *bytes);
@@ -47,8 +47,8 @@ class Database {
   rocksdb::Status Dump(const Slice &user_key, std::vector<std::string> *infos);
   rocksdb::Status FlushDB();
   rocksdb::Status FlushAll();
-  void GetKeyNumStats(const std::string &prefix, KeyNumStats *stats);
-  void Keys(std::string prefix, std::vector<std::string> *keys = nullptr, KeyNumStats *stats = nullptr);
+//  void GetKeyNumStats(const std::string &prefix, KeyNumStats *stats);
+//  void Keys(std::string prefix, std::vector<std::string> *keys = nullptr, KeyNumStats *stats = nullptr);
   rocksdb::Status Scan(const std::string &cursor,
                        uint64_t limit,
                        const std::string &prefix,
@@ -67,18 +67,10 @@ class Database {
                                   std::vector<std::string> *keys,
                                   int count);
 
-protected:
-    // TODO redis key format:
-    // user_key | [cf_code|key_type|value_type] | key_obj : value_obj
-    rocksdb::Status DbGet(const std::string& key,
-                          const std::string& cf_suffix,
-                          std::string* value) {}
-
  protected:
   rockdis::Storage *storage_;
   rocksdb::DB *db_;
-  rocksdb::ColumnFamilyHandle *metadata_cf_handle_;
-  std::string namespace_;
+  int64_t namespace_;
 
   class LatestSnapShot {
    public:
@@ -97,8 +89,8 @@ protected:
 
 class SubKeyScanner : public Redis::Database {
  public:
-  explicit SubKeyScanner(rockdis::Storage *storage, const std::string &ns)
-      : Database(storage, ns) {}
+  explicit SubKeyScanner(rockdis::Storage *storage, int64_t table_id)
+      : Database(storage, table_id) {}
   rocksdb::Status Scan(RedisType type,
                        const Slice &user_key,
                        const std::string &cursor,

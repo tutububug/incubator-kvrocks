@@ -37,8 +37,9 @@ std::vector<rocksdb::Status> String::getRawValues(
   raw_values->resize(keys.size());
   std::vector<rocksdb::Status> statuses(keys.size());
   std::vector<rocksdb::PinnableSlice> pin_values(keys.size());
-  db_->MultiGet(read_options, metadata_cf_handle_, keys.size(),
-                keys.data(), pin_values.data(), statuses.data(), false);
+  // TODO fix
+//  db_->MultiGet(read_options, metadata_cf_handle_, keys.size(),
+//                keys.data(), pin_values.data(), statuses.data(), false);
   for (size_t i = 0; i < keys.size(); i++) {
     if (!statuses[i].ok()) continue;
     (*raw_values)[i].assign(pin_values[i].data(), pin_values[i].size());
@@ -64,7 +65,7 @@ rocksdb::Status String::getRawValue(const std::string &ns_key, std::string *raw_
   rocksdb::ReadOptions read_options;
   LatestSnapShot ss(db_);
   read_options.snapshot = ss.GetSnapShot();
-  rocksdb::Status s = db_->Get(read_options, metadata_cf_handle_, ns_key, raw_value);
+  rocksdb::Status s = db_->Get(read_options, ns_key, raw_value);
   if (!s.ok()) return s;
 
   Metadata metadata(kRedisNone, false);
@@ -102,7 +103,7 @@ rocksdb::Status String::updateRawValue(const std::string &ns_key, const std::str
   rocksdb::WriteBatch batch;
   WriteBatchLogData log_data(kRedisString);
   batch.PutLogData(log_data.Encode());
-  batch.Put(metadata_cf_handle_, ns_key, raw_value);
+  batch.Put(ns_key, raw_value);
   return storage_->Write(rocksdb::WriteOptions(), &batch);
 }
 
@@ -345,7 +346,7 @@ rocksdb::Status String::MSet(const std::vector<StringPair> &pairs, int ttl) {
     WriteBatchLogData log_data(kRedisString);
     batch.PutLogData(log_data.Encode());
     AppendNamespacePrefix(pair.key, &ns_key);
-    batch.Put(metadata_cf_handle_, ns_key, bytes);
+    batch.Put(ns_key, bytes);
     LockGuard guard(storage_->GetLockManager(), ns_key);
     auto s = storage_->Write(rocksdb::WriteOptions(), &batch);
     if (!s.ok()) return s;
@@ -387,7 +388,7 @@ rocksdb::Status String::MSetNX(const std::vector<StringPair> &pairs, int ttl, in
     rocksdb::WriteBatch batch;
     WriteBatchLogData log_data(kRedisString);
     batch.PutLogData(log_data.Encode());
-    batch.Put(metadata_cf_handle_, ns_key, bytes);
+    batch.Put(ns_key, bytes);
     auto s = storage_->Write(rocksdb::WriteOptions(), &batch);
     if (!s.ok()) return s;
   }
@@ -462,9 +463,7 @@ rocksdb::Status String::CAD(const std::string &user_key, const std::string &valu
   }
 
   if (value == current_value) {
-    auto delete_status = storage_->Delete(rocksdb::WriteOptions(),
-                                          storage_->GetCFHandle("metadata"),
-                                          ns_key);
+    auto delete_status = storage_->Delete(rocksdb::WriteOptions(), ns_key);
     if (!delete_status.ok()) {
       return s;
     }

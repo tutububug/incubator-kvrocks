@@ -27,6 +27,7 @@
 #include <vector>
 #include <atomic>
 #include <rocksdb/env.h>
+#include "redis_key_encoding.h"
 
 // 52 bit for microseconds and 11 bit for counter
 const int VersionCounterBits = 11;
@@ -38,49 +39,56 @@ const char* kErrMsgKeyExpired = "the key was expired";
 
 InternalKey::InternalKey(Slice input, bool slot_id_encoded) {
   slot_id_encoded_ = slot_id_encoded;
-  uint32_t key_size;
-  uint8_t namespace_size;
-  GetFixed8(&input, &namespace_size);
-  namespace_ = Slice(input.data(), namespace_size);
-  input.remove_prefix(namespace_size);
-  if (slot_id_encoded_) {
-    GetFixed16(&input, &slotid_);
+
+  auto ns_key = input.ToString();
+  size_t off = 0;
+
+  namespace_ = Redis::DecodeInt(ns_key, off);
+  if (slot_id_encoded) {
+      slotid_ = Redis::DecodeInt(ns_key, off); // decode slot
   }
-  GetFixed32(&input, &key_size);
-  key_ = Slice(input.data(), key_size);
-  input.remove_prefix(key_size);
-  GetFixed64(&input, &version_);
-  sub_key_ = Slice(input.data(), input.size());
-  buf_ = nullptr;
-  memset(prealloc_, '\0', sizeof(prealloc_));
+  std::string key;
+  Redis::DecodeBytes(ns_key, off, &key); // decode user key
+  key_ = key;
+  cf_code_ = Redis::DecodeInt(ns_key, off); // decode cf code
+  version_ = static_cast<uint64_t>(Redis::DecodeInt(ns_key, off)); // decode sub key version
+  std::string sub_key;
+  Redis::DecodeBytes(ns_key, off, &sub_key); // decode sub key
+  sub_key_ = sub_key;
 }
 
-InternalKey::InternalKey(Slice ns_key, Slice sub_key, uint64_t version, bool slot_id_encoded) {
-  slot_id_encoded_ = slot_id_encoded;
-  uint8_t namespace_size;
-  GetFixed8(&ns_key, &namespace_size);
-  namespace_ = Slice(ns_key.data(), namespace_size);
-  ns_key.remove_prefix(namespace_size);
-  if (slot_id_encoded_) {
-    GetFixed16(&ns_key, &slotid_);
-  }
-  key_ = ns_key;
-  sub_key_ = sub_key;
-  version_ = version;
-  buf_ = nullptr;
-  memset(prealloc_, '\0', sizeof(prealloc_));
+InternalKey::InternalKey(Slice nsk, Slice sub_key, uint64_t version, bool slot_id_encoded, int64_t cf_code) {
+    slot_id_encoded_ = slot_id_encoded;
+
+    auto ns_key = nsk.ToString();
+    size_t off = 0;
+
+    namespace_ = Redis::DecodeInt(ns_key, off);
+    if (slot_id_encoded) {
+        slotid_ = Redis::DecodeInt(ns_key, off); // decode slot
+    }
+    std::string key;
+    Redis::DecodeBytes(ns_key, off, &key); // decode user key
+    key_ = key;
+
+    cf_code_ = cf_code;
+    version_ = version;
+    sub_key_ = sub_key;
 }
 
 InternalKey::~InternalKey() {
-  if (buf_ != nullptr && buf_ != prealloc_) delete []buf_;
 }
 
-Slice InternalKey::GetNamespace() const {
+int64_t InternalKey::GetNamespace() const {
   return namespace_;
 }
 
 Slice InternalKey::GetKey() const {
   return key_;
+}
+
+int64_t InternalKey::GetCF() const {
+    return cf_code_;
 }
 
 Slice InternalKey::GetSubKey() const {
@@ -92,34 +100,20 @@ uint64_t InternalKey::GetVersion() const {
 }
 
 void InternalKey::Encode(std::string *out) {
-  out->clear();
-  size_t pos = 0;
-  size_t total = 1+namespace_.size()+4+key_.size()+8+sub_key_.size();
-  if (slot_id_encoded_) {
-    total += 2;
-  }
-  if (total < sizeof(prealloc_)) {
-    buf_ = prealloc_;
-  } else {
-    buf_ = new char[total];
-  }
-  EncodeFixed8(buf_+pos, static_cast<uint8_t>(namespace_.size()));
-  pos += 1;
-  memcpy(buf_+pos, namespace_.data(), namespace_.size());
-  pos += namespace_.size();
-  if (slot_id_encoded_) {
-    EncodeFixed16(buf_+pos, slotid_);
-    pos += 2;
-  }
-  EncodeFixed32(buf_+pos, static_cast<uint32_t>(key_.size()));
-  pos += 4;
-  memcpy(buf_+pos, key_.data(), key_.size());
-  pos += key_.size();
-  EncodeFixed64(buf_+pos, version_);
-  pos += 8;
-  memcpy(buf_+pos, sub_key_.data(), sub_key_.size());
-  pos += sub_key_.size();
-  out->assign(buf_, pos);
+    out->clear();
+    size_t pos = 0;
+
+    Redis::EncodeInt(out, namespace_); // encode table id
+    pos += 8;
+    if (slot_id_encoded_) {
+        auto slot_id = GetSlotNumFromKey(key_.ToString());
+        Redis::EncodeInt(out, slot_id); // encode slot
+        pos += 8;
+    }
+    Redis::EncodeBytes(out, key_.ToString()); // encode user key
+    Redis::EncodeInt(out, cf_code_); // encode cf code
+    Redis::EncodeInt(out, version_); // encode version
+    Redis::EncodeBytes(out, sub_key_.ToString()); // encode sub key
 }
 
 bool InternalKey::operator==(const InternalKey &that) const {
@@ -128,41 +122,40 @@ bool InternalKey::operator==(const InternalKey &that) const {
   return version_ == that.version_;
 }
 
-void ExtractNamespaceKey(Slice ns_key, std::string *ns, std::string *key, bool slot_id_encoded) {
-  uint8_t namespace_size;
-  GetFixed8(&ns_key, &namespace_size);
-  *ns = ns_key.ToString().substr(0, namespace_size);
-  ns_key.remove_prefix(namespace_size);
+void ExtractNamespaceKey(const Slice& nsk, int64_t& table_id, std::string *key, bool slot_id_encoded) {
+    auto ns_key = nsk.ToString();
+    size_t off = 0;
 
-  if (slot_id_encoded) {
-    uint16_t slot_id;
-    GetFixed16(&ns_key, &slot_id);
-  }
-
-  *key = ns_key.ToString();
+    try{
+        table_id = Redis::DecodeInt(ns_key, off); // decode table id
+        if (slot_id_encoded) {
+            Redis::DecodeInt(ns_key, off); // decode slot
+        }
+        Redis::DecodeBytes(ns_key, off, key); // decode user key
+        Redis::DecodeInt(ns_key, off); // decode cf code
+    } catch (const std::exception& e) {
+        // TODO print log
+    }
 }
 
-void ComposeNamespaceKey(const Slice& ns, const Slice& key, std::string *ns_key, bool slot_id_encoded) {
-  ns_key->clear();
+void ComposeNamespaceKey(int64_t table_id, const Slice& key, std::string *ns_key, bool slot_id_encoded, int64_t cf_code) {
+    ns_key->clear();
 
-  PutFixed8(ns_key, static_cast<uint8_t>(ns.size()));
-  ns_key->append(ns.data(), ns.size());
-
-  if (slot_id_encoded) {
-    auto slot_id = GetSlotNumFromKey(key.ToString());
-    PutFixed16(ns_key, slot_id);
-  }
-
-  ns_key->append(key.data(), key.size());
+    Redis::EncodeInt(ns_key, table_id); // encode table id
+    auto key_str = key.ToString();
+    if (slot_id_encoded) {
+        auto slot_id = GetSlotNumFromKey(key_str);
+        Redis::EncodeInt(ns_key, slot_id); // encode slot
+    }
+    Redis::EncodeBytes(ns_key, key_str); // encode user key
+    Redis::EncodeInt(ns_key, cf_code); // encode cf code
 }
 
-void ComposeSlotKeyPrefix(const Slice& ns, int slotid, std::string *output) {
-  output->clear();
+void ComposeSlotKeyPrefix(int64_t table_id, int slotid, std::string *output) {
+    output->clear();
 
-  PutFixed8(output, static_cast<uint8_t>(ns.size()));
-  output->append(ns.data(), ns.size());
-
-  PutFixed16(output, static_cast<uint16_t>(slotid));
+    Redis::EncodeInt(output, table_id);
+    Redis::EncodeInt(output, slotid);
 }
 
 Metadata::Metadata(RedisType type, bool generate_version) {

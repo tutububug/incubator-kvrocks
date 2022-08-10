@@ -89,9 +89,8 @@ namespace Redis {
 
 class ZSet : public SubKeyScanner {
  public:
-  explicit ZSet(rockdis::Storage* storage, const std::string &ns) :
-      SubKeyScanner(storage, ns) {}
-// TODO     score_cf_handle_(storage->GetCFHandle("zset_score")) {}
+  explicit ZSet(rockdis::Storage* storage, int64_t table_id) :
+      SubKeyScanner(storage, table_id) {}
   rocksdb::Status Add(const Slice &user_key, uint8_t flags, std::vector<MemberScore> *mscores, int *ret);
   rocksdb::Status Card(const Slice &user_key, int *ret);
   rocksdb::Status Count(const Slice &user_key, const ZRangeSpec &spec, int *ret);
@@ -128,9 +127,6 @@ class ZSet : public SubKeyScanner {
                        std::map<std::string, double> *mscores);
 
   rocksdb::Status GetMetadata(const Slice &ns_key, ZSetMetadata *metadata);
-
- private:
-  rocksdb::ColumnFamilyHandle *score_cf_handle_;
 };
 
 }  // namespace Redis
