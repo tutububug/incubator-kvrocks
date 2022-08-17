@@ -45,7 +45,7 @@ static const uint8_t encGroupSize = 8;
 static const uint8_t encMarker    = 0xFF;
 static const uint8_t encPad       = 0x0;
 
-static std::string* pads = new std::string('\0', encGroupSize);
+static auto pads = std::string(encGroupSize, encPad);
 
 // EncodeBytes guarantees the encoded value is in ascending order for comparison,
 // encoding with the following rule:
@@ -63,17 +63,15 @@ void EncodeBytes(std::string* b, const std::string& data) {
     // Assume that the byte slice size is about `(len(data) / encGroupSize + 1) * (encGroupSize + 1)` bytes,
     // that is `(len(data) / 8 + 1) * 9` in our implement.
     auto dLen = data.size();
-    auto reallocSize = (dLen/encGroupSize + 1) * (encGroupSize + 1);
-    reallocBytes(b, reallocSize);
     for (auto idx = 0; idx <= dLen; idx += encGroupSize) {
         auto remain = dLen - idx;
         auto padCount = 0;
         if (remain >= encGroupSize) {
-            b->append(std::string(std::begin(data)+idx, std::begin(data)+idx+encGroupSize-1));
+            b->append(std::string(data, idx, encGroupSize));
         } else {
             padCount = encGroupSize - remain;
-            b->append(std::string(std::begin(data)+idx, std::end(data)));
-            b->append(std::string(std::begin(*pads), std::begin(*pads)+padCount-1));
+            b->append(std::string(data, idx));
+            b->append(std::string(pads, 0, padCount));
         }
 
         auto marker = encMarker - padCount;
@@ -83,19 +81,18 @@ void EncodeBytes(std::string* b, const std::string& data) {
 
 void decodeBytes(const std::string& b_in, size_t& off, std::string* buf, bool reverse) {
     if (buf == nullptr) {
-        buf = new std::string(b_in.size(), '\0');
+        buf = new std::string(b_in.size(), 0x00);
     }
     buf->clear();
-
     while (true) {
-        auto b = std::string(std::begin(b_in)+off, std::end(b_in));
+        auto b = std::string(b_in, off);
         if (b.size() < encGroupSize+1) {
             throw std::runtime_error("insufficient bytes to decode value");
         }
 
-        auto groupBytes = std::string(std::begin(b), std::begin(b)+encGroupSize);
+        auto groupBytes = std::string(b, 0, encGroupSize+1);
 
-        auto group = std::string(std::begin(groupBytes), std::begin(groupBytes)+encGroupSize-1);
+        auto group = std::string(groupBytes, 0, encGroupSize);
         auto marker = groupBytes[encGroupSize];
 
         char padCount;
@@ -111,7 +108,7 @@ void decodeBytes(const std::string& b_in, size_t& off, std::string* buf, bool re
         }
 
         auto realGroupSize = encGroupSize - padCount;
-        buf->append(std::string(std::begin(group), std::begin(group)+realGroupSize-1));
+        buf->append(std::string(group, 0, realGroupSize));
         off += encGroupSize+1;
 
         if (padCount != 0) {
@@ -142,13 +139,13 @@ void DecodeBytes(const std::string& b, size_t& off, std::string* buf) {
     return decodeBytes(b, off, buf, false);
 }
 
-void safeReverseBytes(std::string& b) {
-    for (auto it = b.begin(); it != b.end(); it++) {
+void safeReverseBytes(std::string* b) {
+    for (auto it = b->begin(); it != b->end(); it++) {
         *it = ~(*it);
     }
 }
 
-void reverseBytes(std::string& b) {
+void reverseBytes(std::string* b) {
     safeReverseBytes(b);
 }
 
@@ -164,15 +161,15 @@ static const uint64_t signMask = 0x8000000000000000;
 
 // EncodeIntToCmpUint make int v to comparable uint type
 uint64_t EncodeIntToCmpUint(int64_t v) {
-    return uint64_t(v) ^ signMask;
+    return static_cast<uint64_t>(v) ^ signMask;
 }
 
 // DecodeCmpUintToInt decodes the u that encoded by EncodeIntToCmpUint
 int64_t DecodeCmpUintToInt(uint64_t u) {
-    return int64_t(u ^ signMask);
+    return static_cast<int64_t>(u ^ signMask);
 }
 
-uint64_t bigEndianUint64(const std::string& b) {
+uint64_t bigEndianUint64(const char* b) {
     return static_cast<uint64_t>(b[7]) |
     static_cast<uint64_t>(b[6])<<8 |
     static_cast<uint64_t>(b[5])<<16 |
@@ -183,7 +180,7 @@ uint64_t bigEndianUint64(const std::string& b) {
     static_cast<uint64_t>(b[0])<<56;
 }
 
-void bigEndianPutUint64(std::string* b, uint64_t v) {
+void bigEndianPutUint64(char* b, uint64_t v) {
     b[0] = static_cast<char>(v >> 56);
     b[1] = static_cast<char>(v >> 48);
     b[2] = static_cast<char>(v >> 40);
@@ -197,10 +194,10 @@ void bigEndianPutUint64(std::string* b, uint64_t v) {
 // EncodeInt appends the encoded value to slice b and returns the appended slice.
 // EncodeInt guarantees that the encoded value is in ascending order for comparison.
 void EncodeInt(std::string* b, int64_t v) {
-    auto data = std::string(8, '\0');
+    char data[8] = {0,};
     auto u = EncodeIntToCmpUint(v);
-    bigEndianPutUint64(b, u);
-    b->append(data);
+    bigEndianPutUint64(data, u);
+    b->append(data, 8);
 }
 
 // DecodeInt decodes value encoded by EncodeInt before.
@@ -210,7 +207,7 @@ int64_t DecodeInt(const std::string& b, size_t& off) {
         throw std::runtime_error("insufficient bytes to decode value");
     }
 
-    auto u = bigEndianUint64(std::string(std::begin(b), std::begin(b)+7));
+    auto u = bigEndianUint64(std::string(b, 0, 8).c_str());
     auto v = DecodeCmpUintToInt(u);
     off += 8;
     return v;

@@ -96,7 +96,7 @@ class InternalKey {
   bool operator==(const InternalKey &that) const;
 
  private:
-  int64_t namespace_;
+  int64_t table_id_;
   Slice key_;
   int64_t cf_code_;
   Slice sub_key_;

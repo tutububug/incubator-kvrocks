@@ -37,50 +37,47 @@ static std::atomic<uint64_t> version_counter_ = {0};
 const char* kErrMsgWrongType = "WRONGTYPE Operation against a key holding the wrong kind of value";
 const char* kErrMsgKeyExpired = "the key was expired";
 
-InternalKey::InternalKey(Slice input, bool slot_id_encoded) {
-  slot_id_encoded_ = slot_id_encoded;
-
+InternalKey::InternalKey(Slice input, bool slot_id_encoded)
+        : slot_id_encoded_(slot_id_encoded) {
   auto ns_key = input.ToString();
   size_t off = 0;
 
-  namespace_ = Redis::DecodeInt(ns_key, off);
+  table_id_ = Redis::DecodeInt(ns_key, off);
   if (slot_id_encoded) {
       slotid_ = Redis::DecodeInt(ns_key, off); // decode slot
   }
   std::string key;
   Redis::DecodeBytes(ns_key, off, &key); // decode user key
-  key_ = key;
+  key_ = std::move(key);
+
   cf_code_ = Redis::DecodeInt(ns_key, off); // decode cf code
   version_ = static_cast<uint64_t>(Redis::DecodeInt(ns_key, off)); // decode sub key version
   std::string sub_key;
   Redis::DecodeBytes(ns_key, off, &sub_key); // decode sub key
-  sub_key_ = sub_key;
+  sub_key_ = std::move(sub_key);
 }
 
-InternalKey::InternalKey(Slice nsk, Slice sub_key, uint64_t version, bool slot_id_encoded, int64_t cf_code) {
+InternalKey::InternalKey(Slice nsk, Slice sub_key, uint64_t version, bool slot_id_encoded, int64_t cf_code)
+        : sub_key_(sub_key), version_(version), slot_id_encoded_(slot_id_encoded), cf_code_(cf_code) {
     slot_id_encoded_ = slot_id_encoded;
 
     auto ns_key = nsk.ToString();
     size_t off = 0;
 
-    namespace_ = Redis::DecodeInt(ns_key, off);
+    table_id_ = Redis::DecodeInt(ns_key, off);
     if (slot_id_encoded) {
         slotid_ = Redis::DecodeInt(ns_key, off); // decode slot
     }
     std::string key;
     Redis::DecodeBytes(ns_key, off, &key); // decode user key
-    key_ = key;
-
-    cf_code_ = cf_code;
-    version_ = version;
-    sub_key_ = sub_key;
+    key_ = std::move(key);
 }
 
 InternalKey::~InternalKey() {
 }
 
 int64_t InternalKey::GetNamespace() const {
-  return namespace_;
+  return table_id_;
 }
 
 Slice InternalKey::GetKey() const {
@@ -101,14 +98,11 @@ uint64_t InternalKey::GetVersion() const {
 
 void InternalKey::Encode(std::string *out) {
     out->clear();
-    size_t pos = 0;
 
-    Redis::EncodeInt(out, namespace_); // encode table id
-    pos += 8;
+    Redis::EncodeInt(out, table_id_); // encode table id
     if (slot_id_encoded_) {
         auto slot_id = GetSlotNumFromKey(key_.ToString());
         Redis::EncodeInt(out, slot_id); // encode slot
-        pos += 8;
     }
     Redis::EncodeBytes(out, key_.ToString()); // encode user key
     Redis::EncodeInt(out, cf_code_); // encode cf code
@@ -134,7 +128,7 @@ void ExtractNamespaceKey(const Slice& nsk, int64_t& table_id, std::string *key, 
         Redis::DecodeBytes(ns_key, off, key); // decode user key
         Redis::DecodeInt(ns_key, off); // decode cf code
     } catch (const std::exception& e) {
-        // TODO print log
+        throw e;
     }
 }
 

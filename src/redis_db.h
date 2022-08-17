@@ -49,11 +49,11 @@ class Database {
   rocksdb::Status FlushAll();
 //  void GetKeyNumStats(const std::string &prefix, KeyNumStats *stats);
 //  void Keys(std::string prefix, std::vector<std::string> *keys = nullptr, KeyNumStats *stats = nullptr);
-  rocksdb::Status Scan(const std::string &cursor,
-                       uint64_t limit,
-                       const std::string &prefix,
-                       std::vector<std::string> *keys,
-                       std::string *end_cursor = nullptr);
+//  rocksdb::Status Scan(const std::string &cursor,
+//                       uint64_t limit,
+//                       const std::string &prefix,
+//                       std::vector<std::string> *keys,
+//                       std::string *end_cursor = nullptr);
   rocksdb::Status RandomKey(const std::string &cursor, std::string *key);
   void AppendNamespacePrefix(const Slice &user_key, std::string *output);
   rocksdb::Status FindKeyRangeWithPrefix(const std::string &prefix,
@@ -70,7 +70,7 @@ class Database {
  protected:
   rockdis::Storage *storage_;
   rocksdb::DB *db_;
-  int64_t namespace_;
+  int64_t table_id_;
 
   class LatestSnapShot {
    public:
