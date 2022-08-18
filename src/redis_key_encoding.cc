@@ -39,7 +39,6 @@
 namespace Redis {
 
 void reverseBytes(std::string* b);
-void reallocBytes(std::string* b, int n);
 
 static const uint8_t encGroupSize = 8;
 static const uint8_t encMarker    = 0xFF;
@@ -80,9 +79,6 @@ void EncodeBytes(std::string* b, const std::string& data) {
 }
 
 void decodeBytes(const std::string& b_in, size_t& off, std::string* buf, bool reverse) {
-    if (buf == nullptr) {
-        buf = new std::string(b_in.size(), 0x00);
-    }
     buf->clear();
     while (true) {
         auto b = std::string(b_in, off);
@@ -147,14 +143,6 @@ void safeReverseBytes(std::string* b) {
 
 void reverseBytes(std::string* b) {
     safeReverseBytes(b);
-}
-
-// reallocBytes is like realloc.
-void reallocBytes(std::string* b, int n) {
-    auto newSize = b->size() + n;
-    if (b->capacity() < newSize) {
-        b->resize(newSize);
-    }
 }
 
 static const uint64_t signMask = 0x8000000000000000;
