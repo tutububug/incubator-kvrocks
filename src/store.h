@@ -4,7 +4,7 @@
 #include "lock_manager.h"
 #include "config.h"
 
-namespace rockdis {
+namespace Redis{
 
 class Storage {
 public:

@@ -22,13 +22,11 @@
 
 #include <string>
 #include <vector>
-#include <event2/buffer.h>
 #include <rocksdb/status.h>
 
 #define CRLF "\r\n"
 
 namespace Redis {
-void Reply(evbuffer *output, const std::string &data);
 std::string SimpleString(const std::string &data);
 std::string Error(const std::string &err);
 std::string Integer(int64_t data);

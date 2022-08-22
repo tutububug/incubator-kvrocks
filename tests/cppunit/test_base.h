@@ -35,7 +35,7 @@ protected:
     rocksdb::DB* db;
     rocksdb::DB::Open(options, "/tmp/testsdb", &db);
 
-    storage_ = new rockdis::Storage(db);
+    storage_ = new Redis::Storage(db);
     Status s = storage_->Open();
     if (!s.IsOK()) {
       std::cout << "Failed to open the storage, encounter error: " << s.Msg() << std::endl;
@@ -49,7 +49,7 @@ protected:
   }
 
 protected:
-  rockdis::Storage *storage_;
+  Redis::Storage *storage_;
   Config *config_ = nullptr;
   std::string key_;
   std::vector<Slice> fields_;

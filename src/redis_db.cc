@@ -32,7 +32,7 @@ const char *kDefaultNamespace = "__namespace";
 
 namespace Redis {
 
-Database::Database(rockdis::Storage* storage, int64_t table_id) {
+Database::Database(Redis::Storage* storage, int64_t table_id) {
   storage_ = storage;
   db_ = storage->GetDB();
     table_id_ = table_id;

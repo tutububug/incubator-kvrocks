@@ -43,7 +43,7 @@ enum class HashFetchType {
 namespace Redis {
 class Hash : public SubKeyScanner {
  public:
-  Hash(rockdis::Storage* storage, int64_t table_id) : SubKeyScanner(storage, table_id) {}
+  Hash(Redis::Storage* storage, int64_t table_id) : SubKeyScanner(storage, table_id) {}
   rocksdb::Status Size(const Slice &user_key, uint32_t *ret);
   rocksdb::Status Get(const Slice &user_key, const Slice &field, std::string *value);
   rocksdb::Status Set(const Slice &user_key, const Slice &field, const Slice &value, int *ret);

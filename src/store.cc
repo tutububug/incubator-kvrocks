@@ -1,7 +1,7 @@
 #include "store.h"
 #include "status.h"
 
-namespace rockdis {
+namespace Redis {
 
 Storage::Storage(rocksdb::DB* db):
         db_(db) {

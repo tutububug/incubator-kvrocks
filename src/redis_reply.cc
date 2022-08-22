@@ -23,10 +23,6 @@
 
 namespace Redis {
 
-void Reply(evbuffer *output, const std::string &data) {
-  evbuffer_add(output, data.c_str(), data.length());
-}
-
 std::string SimpleString(const std::string &data) { return "+" + data + CRLF; }
 
 std::string Error(const std::string &err) { return "-" + err + CRLF; }

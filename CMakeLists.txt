@@ -63,6 +63,10 @@ set(REDISDB_SRCS
         src/lock_manager.cc
         src/redis_slot.cc
         src/redis_key_encoding.cc
+        src/redis_processor.cc
+        src/redis_request.cc
+        src/redis_cmd.cc
+        src/redis_reply.cc
         )
 
 add_library(redisdb STATIC ${REDISDB_SRCS})

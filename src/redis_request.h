@@ -23,7 +23,6 @@
 #include <deque>
 #include <vector>
 #include <string>
-#include <event2/buffer.h>
 
 #include "status.h"
 
@@ -33,19 +32,17 @@ namespace Redis {
 
 using CommandTokens = std::vector<std::string>;
 
-class Connection;
-
 class Request {
  public:
-  explicit Request(Server *svr) : svr_(svr) {}
+  Request() = default;
   // Not copyable
   Request(const Request &) = delete;
   Request &operator=(const Request &) = delete;
 
   // Parse the redis requests (bulk string array format)
-  Status Tokenize(evbuffer *input);
+  Status Tokenize(const std::string& input);
 
-  std::deque<CommandTokens> *GetCommands() { return &commands_; }
+  std::vector<CommandTokens>& GetCommands() { return commands_; }
 
  private:
   // internal states related to parsing
@@ -55,9 +52,7 @@ class Request {
   int64_t multi_bulk_len_ = 0;
   size_t bulk_len_ = 0;
   CommandTokens tokens_;
-  std::deque<CommandTokens> commands_;
-
-  Server *svr_;
+  std::vector<CommandTokens> commands_;
 };
 
 }  // namespace Redis

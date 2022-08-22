@@ -35,7 +35,7 @@ namespace Redis {
 
 class Database {
  public:
-  explicit Database(rockdis::Storage* storage, int64_t table_id);
+  explicit Database(Redis::Storage* storage, int64_t table_id);
   rocksdb::Status GetMetadata(RedisType type, const Slice &ns_key, Metadata *metadata);
   rocksdb::Status GetRawMetadata(const Slice &ns_key, std::string *bytes);
   rocksdb::Status GetRawMetadataByUserKey(const Slice &user_key, std::string *bytes);
@@ -68,7 +68,7 @@ class Database {
                                   int count);
 
  protected:
-  rockdis::Storage *storage_;
+  Redis::Storage *storage_;
   rocksdb::DB *db_;
   int64_t table_id_;
 
@@ -89,7 +89,7 @@ class Database {
 
 class SubKeyScanner : public Redis::Database {
  public:
-  explicit SubKeyScanner(rockdis::Storage *storage, int64_t table_id)
+  explicit SubKeyScanner(Redis::Storage *storage, int64_t table_id)
       : Database(storage, table_id) {}
   rocksdb::Status Scan(RedisType type,
                        const Slice &user_key,

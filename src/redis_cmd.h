@@ -28,13 +28,10 @@
 #include <utility>
 #include <memory>
 
-#include <event2/bufferevent.h>
-#include <event2/event.h>
 #include <glog/logging.h>
 #include <rocksdb/types.h>
 #include <rocksdb/utilities/backupable_db.h>
 
-#include "redis_reply.h"
 #include "status.h"
 
 class Server;
@@ -67,8 +64,8 @@ class Commander {
   virtual Status Parse(const std::vector<std::string> &args) {
     return Status::OK();
   }
-  virtual Status Execute(Server *svr, Connection *conn, std::string *output) {
-    return Status(Status::RedisExecErr, "not implemented");
+  virtual Status Exec(int64_t table_id, std::string& output, rocksdb::WriteBatch* batch, Redis::Storage* storage = nullptr) {
+      return Status(Status::RedisExecErr, "not implemented");
   }
 
   virtual ~Commander() = default;
