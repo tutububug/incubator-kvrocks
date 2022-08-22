@@ -21,7 +21,6 @@ public:
     LockManager* GetLockManager();
     rocksdb::DB* GetDB();
     bool IsSlotIdEncoded();
-    rocksdb::ColumnFamilyHandle* GetCFHandle(const std::string& str);
 
 public:
     rocksdb::Status Write(const rocksdb::WriteOptions& options, rocksdb::WriteBatch* updates);

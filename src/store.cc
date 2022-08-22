@@ -39,10 +39,6 @@ bool Storage::IsSlotIdEncoded() {
     return false;
 }
 
-rocksdb::ColumnFamilyHandle* Storage::GetCFHandle(const std::string& str) {
-    return nullptr;
-}
-
 rocksdb::Status Storage::Write(const rocksdb::WriteOptions& options, rocksdb::WriteBatch* updates) {
     return db_->Write(options, updates);
 }
@@ -53,12 +49,11 @@ rocksdb::Status Storage::Delete(const rocksdb::WriteOptions& options, const rock
 
 rocksdb::Status Storage::DeleteRange(const rocksdb::Slice& first_key, const rocksdb::Slice& last_key) {
     rocksdb::WriteBatch batch;
-    rocksdb::ColumnFamilyHandle *cf_handle = GetCFHandle("metadata");
-    auto s = batch.DeleteRange(cf_handle, first_key, last_key);
+    auto s = batch.DeleteRange(first_key, last_key);
     if (!s.ok()) {
         return s;
     }
-    s = batch.Delete(cf_handle, last_key);
+    s = batch.Delete(last_key);
     if (!s.ok()) {
         return s;
     }

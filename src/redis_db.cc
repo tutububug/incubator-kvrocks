@@ -34,7 +34,6 @@ namespace Redis {
 
 Database::Database(rockdis::Storage* storage, int64_t table_id) {
   storage_ = storage;
-// TODO  metadata_cf_handle_ = storage->GetCFHandle("metadata");
   db_ = storage->GetDB();
     table_id_ = table_id;
 }
