@@ -77,10 +77,10 @@ set(TESTS_SRCS
 #        tests/cppunit/compact_test.cc
 #        tests/cppunit/rwlock_test.cc
 #        tests/cppunit/t_encoding_test.cc
-#        tests/cppunit/t_hash_test.cc
-#        tests/cppunit/t_list_test.cc
+        tests/cppunit/t_hash_test.cc
+        tests/cppunit/t_list_test.cc
 #        tests/cppunit/t_metadata_test.cc
-#        tests/cppunit/t_set_test.cc
+        tests/cppunit/t_set_test.cc
         tests/cppunit/t_string_test.cc
 #        tests/cppunit/t_zset_test.cc
         tests/cppunit/encoding_test.cc

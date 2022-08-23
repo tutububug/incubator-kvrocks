@@ -107,7 +107,9 @@ void InternalKey::Encode(std::string *out) {
     Redis::EncodeBytes(out, key_.ToString()); // encode user key
     Redis::EncodeInt(out, cf_code_); // encode cf code
     Redis::EncodeInt(out, version_); // encode version
-    Redis::EncodeBytes(out, sub_key_.ToString()); // encode sub key
+    if (sub_key_.size() > 0) {
+      Redis::EncodeBytes(out, sub_key_.ToString()); // encode sub key
+    }
 }
 
 bool InternalKey::operator==(const InternalKey &that) const {

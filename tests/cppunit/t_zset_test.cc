@@ -26,7 +26,7 @@
 class RedisZSetTest : public TestBase {
 protected:
   RedisZSetTest() : TestBase() {
-    zset = Util::MakeUnique<Redis::ZSet>(storage_, "zset_ns");
+    zset = Util::MakeUnique<Redis::ZSet>(storage_, 1, &batch_, false);
   }
   ~RedisZSetTest() = default;
   void SetUp() {

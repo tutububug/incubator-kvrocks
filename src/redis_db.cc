@@ -570,7 +570,6 @@ rocksdb::Status Database::GetSlotKeysInfo(int slot,
 }
 */
 
-/*
 rocksdb::Status SubKeyScanner::Scan(RedisType type,
                                     const Slice &user_key,
                                     const std::string &cursor,
@@ -592,14 +591,14 @@ rocksdb::Status SubKeyScanner::Scan(RedisType type,
   auto iter = DBUtil::UniqueIterator(db_, read_options);
   std::string match_prefix_key;
   if (!subkey_prefix.empty()) {
-    InternalKey(ns_key, subkey_prefix, metadata.version, storage_->IsSlotIdEncoded()).Encode(&match_prefix_key);
+    InternalKey(ns_key, subkey_prefix, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&match_prefix_key);
   } else {
-    InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode(&match_prefix_key);
+    InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&match_prefix_key);
   }
 
   std::string start_key;
   if (!cursor.empty()) {
-    InternalKey(ns_key, cursor, metadata.version, storage_->IsSlotIdEncoded()).Encode(&start_key);
+    InternalKey(ns_key, cursor, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&start_key);
   } else {
     start_key = match_prefix_key;
   }
@@ -624,7 +623,6 @@ rocksdb::Status SubKeyScanner::Scan(RedisType type,
   }
   return rocksdb::Status::OK();
 }
- */
 
 RedisType WriteBatchLogData::GetRedisType() {
   return type_;
