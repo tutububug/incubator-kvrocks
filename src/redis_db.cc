@@ -35,7 +35,7 @@ namespace Redis {
 Database::Database(Redis::Storage* storage, int64_t table_id) {
   storage_ = storage;
   db_ = storage->GetDB();
-    table_id_ = table_id;
+  table_id_ = table_id;
 }
 
 rocksdb::Status Database::GetMetadata(RedisType type, const Slice &ns_key, Metadata *metadata) {
@@ -228,7 +228,6 @@ void Database::Keys(std::string prefix, std::vector<std::string> *keys, KeyNumSt
 }
  */
 
-/*
 rocksdb::Status Database::Scan(const std::string &cursor,
                          uint64_t limit,
                          const std::string &prefix,
@@ -237,7 +236,8 @@ rocksdb::Status Database::Scan(const std::string &cursor,
   end_cursor->clear();
   uint64_t cnt = 0;
   uint16_t slot_id = 0, slot_start = 0;
-  std::string ns_prefix, ns_cursor, ns, user_key, value, index_key;
+  std::string ns_prefix, ns_cursor, user_key, value, index_key;
+  int64_t table_id = 0;
 
   LatestSnapShot ss(db_);
   rocksdb::ReadOptions read_options;
@@ -248,7 +248,7 @@ rocksdb::Status Database::Scan(const std::string &cursor,
   AppendNamespacePrefix(cursor, &ns_cursor);
   if (storage_->IsSlotIdEncoded()) {
     slot_start = cursor.empty() ? 0 : GetSlotNumFromKey(cursor);
-    ComposeNamespaceKey(table_id_, "", &ns_prefix, false);
+    ComposeNamespaceKey(table_id_, "", &ns_prefix, false, kColumnFamilyIDMetadata);
     if (!prefix.empty()) {
       PutFixed16(&ns_prefix, slot_start);
       ns_prefix.append(prefix);
@@ -278,7 +278,7 @@ rocksdb::Status Database::Scan(const std::string &cursor,
       value = iter->value().ToString();
       metadata.Decode(value);
       if (metadata.Expired()) continue;
-      ExtractNamespaceKey(iter->key(), &ns, &user_key, storage_->IsSlotIdEncoded());
+      ExtractNamespaceKey(iter->key(), table_id, &user_key, storage_->IsSlotIdEncoded());
       keys->emplace_back(user_key);
       cnt++;
     }
@@ -302,7 +302,7 @@ rocksdb::Status Database::Scan(const std::string &cursor,
     if (slot_id > slot_start + HASH_SLOTS_MAX_ITERATIONS) {
       if (keys->empty()) {
         if (iter->Valid()) {
-          ExtractNamespaceKey(iter->key(), &ns, &user_key, storage_->IsSlotIdEncoded());
+          ExtractNamespaceKey(iter->key(), table_id, &user_key, storage_->IsSlotIdEncoded());
           auto res = std::mismatch(prefix.begin(), prefix.end(), user_key.begin());
           if (res.first == prefix.end()) {
             keys->emplace_back(user_key);
@@ -316,14 +316,13 @@ rocksdb::Status Database::Scan(const std::string &cursor,
       break;
     }
 
-    ComposeNamespaceKey(table_id_, "", &ns_prefix, false);
+    ComposeNamespaceKey(table_id_, "", &ns_prefix, false, kColumnFamilyIDMetadata);
     PutFixed16(&ns_prefix, slot_id);
     ns_prefix.append(prefix);
     iter->Seek(ns_prefix);
   }
   return rocksdb::Status::OK();
 }
- */
 
 /*
 rocksdb::Status Database::RandomKey(const std::string &cursor, std::string *key) {

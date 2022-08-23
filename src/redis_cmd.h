@@ -64,10 +64,9 @@ class Commander {
   virtual Status Parse(const std::vector<std::string> &args) {
     return Status::OK();
   }
-  virtual Status Exec(int64_t table_id, std::string& output, rocksdb::WriteBatch* batch, Redis::Storage* storage = nullptr) {
+  virtual Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) {
       return Status(Status::RedisExecErr, "not implemented");
   }
-
   virtual ~Commander() = default;
 
  protected:
