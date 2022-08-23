@@ -98,11 +98,8 @@ std::vector<rocksdb::Status> String::getValues(const std::vector<Slice> &ns_keys
 }
 
 rocksdb::Status String::updateRawValue(const std::string &ns_key, const std::string &raw_value) {
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData log_data(kRedisString);
-  batch.PutLogData(log_data.Encode());
-  batch.Put(ns_key, raw_value);
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  batch_->Put(ns_key, raw_value);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 rocksdb::Status String::Append(const std::string &user_key, const std::string &value, int *ret) {
@@ -340,13 +337,10 @@ rocksdb::Status String::MSet(const std::vector<StringPair> &pairs, int ttl) {
     metadata.expire = expire;
     metadata.Encode(&bytes);
     bytes.append(pair.value.data(), pair.value.size());
-    rocksdb::WriteBatch batch;
-    WriteBatchLogData log_data(kRedisString);
-    batch.PutLogData(log_data.Encode());
     AppendNamespacePrefix(pair.key, &ns_key);
-    batch.Put(ns_key, bytes);
+    batch_->Put(ns_key, bytes);
     LockGuard guard(storage_->GetLockManager(), ns_key);
-    auto s = storage_->Write(rocksdb::WriteOptions(), &batch);
+    auto s = storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
     if (!s.ok()) return s;
   }
   return rocksdb::Status::OK();
@@ -383,11 +377,8 @@ rocksdb::Status String::MSetNX(const std::vector<StringPair> &pairs, int ttl, in
     metadata.expire = expire;
     metadata.Encode(&bytes);
     bytes.append(pair.value.data(), pair.value.size());
-    rocksdb::WriteBatch batch;
-    WriteBatchLogData log_data(kRedisString);
-    batch.PutLogData(log_data.Encode());
-    batch.Put(ns_key, bytes);
-    auto s = storage_->Write(rocksdb::WriteOptions(), &batch);
+    batch_->Put(ns_key, bytes);
+    auto s = storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
     if (!s.ok()) return s;
   }
   *ret = 1;
@@ -461,7 +452,8 @@ rocksdb::Status String::CAD(const std::string &user_key, const std::string &valu
   }
 
   if (value == current_value) {
-    auto delete_status = storage_->Delete(rocksdb::WriteOptions(), ns_key);
+    batch_->Delete(ns_key);
+    auto delete_status = storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
     if (!delete_status.ok()) {
       return s;
     }

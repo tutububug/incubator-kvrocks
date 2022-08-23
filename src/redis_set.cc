@@ -39,19 +39,16 @@ rocksdb::Status Set::Overwrite(Slice user_key, const std::vector<std::string> &m
 
   LockGuard guard(storage_->GetLockManager(), ns_key);
   SetMetadata metadata;
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData log_data(kRedisSet);
-  batch.PutLogData(log_data.Encode());
   std::string sub_key;
   for (const auto &member : members) {
     InternalKey(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
-    batch.Put(sub_key, Slice());
+    batch_->Put(sub_key, Slice());
   }
   metadata.size = static_cast<uint32_t>(members.size());
   std::string bytes;
   metadata.Encode(&bytes);
-  batch.Put(ns_key, bytes);
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  batch_->Put(ns_key, bytes);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 rocksdb::Status Set::Add(const Slice &user_key, const std::vector<Slice> &members, int *ret) {
@@ -66,24 +63,21 @@ rocksdb::Status Set::Add(const Slice &user_key, const std::vector<Slice> &member
   if (!s.ok() && !s.IsNotFound()) return s;
 
   std::string value;
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData log_data(kRedisSet);
-  batch.PutLogData(log_data.Encode());
   std::string sub_key;
   for (const auto &member : members) {
     InternalKey(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
     s = db_->Get(rocksdb::ReadOptions(), sub_key, &value);
     if (s.ok()) continue;
-    batch.Put(sub_key, Slice());
+    batch_->Put(sub_key, Slice());
     *ret += 1;
   }
   if (*ret > 0) {
     metadata.size += *ret;
     std::string bytes;
     metadata.Encode(&bytes);
-    batch.Put(ns_key, bytes);
+    batch_->Put(ns_key, bytes);
   }
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 rocksdb::Status Set::Remove(const Slice &user_key, const std::vector<Slice> &members, int *ret) {
@@ -98,14 +92,11 @@ rocksdb::Status Set::Remove(const Slice &user_key, const std::vector<Slice> &mem
   if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
   std::string value, sub_key;
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData log_data(kRedisSet);
-  batch.PutLogData(log_data.Encode());
   for (const auto &member : members) {
     InternalKey(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
     s = db_->Get(rocksdb::ReadOptions(), sub_key, &value);
     if (!s.ok()) continue;
-    batch.Delete(sub_key);
+    batch_->Delete(sub_key);
     *ret += 1;
   }
   if (*ret > 0) {
@@ -113,12 +104,12 @@ rocksdb::Status Set::Remove(const Slice &user_key, const std::vector<Slice> &mem
       metadata.size -= *ret;
       std::string bytes;
       metadata.Encode(&bytes);
-      batch.Put(ns_key, bytes);
+      batch_->Put(ns_key, bytes);
     } else {
-      batch.Delete(ns_key);
+      batch_->Delete(ns_key);
     }
   }
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 rocksdb::Status Set::Card(const Slice &user_key, int *ret) {
@@ -202,10 +193,6 @@ rocksdb::Status Set::Take(const Slice &user_key, std::vector<std::string> *membe
   rocksdb::Status s = GetMetadata(ns_key, &metadata);
   if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData log_data(kRedisSet);
-  batch.PutLogData(log_data.Encode());
-
   std::string prefix, next_version_prefix;
   InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&prefix);
   InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&next_version_prefix);
@@ -223,16 +210,16 @@ rocksdb::Status Set::Take(const Slice &user_key, std::vector<std::string> *membe
        iter->Next()) {
     InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
     members->emplace_back(ikey.GetSubKey().ToString());
-    if (pop) batch.Delete(iter->key());
+    if (pop) batch_->Delete(iter->key());
     if (++n >= count) break;
   }
   if (pop && n > 0) {
     metadata.size -= n;
     std::string bytes;
     metadata.Encode(&bytes);
-    batch.Put(ns_key, bytes);
+    batch_->Put(ns_key, bytes);
   }
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 rocksdb::Status Set::Move(const Slice &src, const Slice &dst, const Slice &member, int *ret) {

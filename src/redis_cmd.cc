@@ -151,7 +151,7 @@ class CommandKeys : public Commander {
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     std::string prefix = args_[1];
     std::vector<std::string> keys;
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     if (prefix == "*") {
       redis.Keys(std::string(), &keys);
     } else {
@@ -170,7 +170,7 @@ class CommandKeys : public Commander {
 class CommandFlushDB : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = redis.FlushDB();
     LOG(WARNING) << "DB keys in table: " << table_id;
     if (s.ok()) {
@@ -195,7 +195,7 @@ class CommandFlushAll : public Commander {
         LOG(INFO) << "Stop migration task for flushall";
       }
     }
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = redis.FlushAll();
     LOG(WARNING) << "All DB keys was flushed, addr: " << conn->GetAddr();
     if (s.ok()) {
@@ -265,7 +265,7 @@ class CommandGet : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     std::string value;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.Get(args_[1], &value);
     if (!s.ok() && !s.IsNotFound()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -279,7 +279,7 @@ class CommandStrlen: public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     std::string value;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.Get(args_[1], &value);
     if (!s.ok() && !s.IsNotFound()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -296,7 +296,7 @@ class CommandStrlen: public Commander {
 class CommandGetSet : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     std::string old_value;
     rocksdb::Status s = string_db.GetSet(args_[1], args_[2], &old_value);
     if (!s.ok() && !s.IsNotFound()) {
@@ -325,7 +325,7 @@ class CommandGetRange: public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     std::string value;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.Get(args_[1], &value);
     if (!s.ok() && !s.IsNotFound()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -363,7 +363,7 @@ class CommandSetRange: public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.SetRange(args_[1], offset_, args_[3], &ret);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -380,7 +380,7 @@ class CommandSetRange: public Commander {
 class CommandMGet : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     std::vector<Slice> keys;
     for (size_t i = 1; i < args_.size(); i++) {
       keys.emplace_back(args_[i]);
@@ -398,7 +398,7 @@ class CommandAppend: public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.Append(args_[1], args_[2], &ret);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -457,7 +457,7 @@ class CommandSet : public Commander {
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s;
     if (nx_) {
       s = string_db.SetNX(args_[1], args_[2], ttl_, &ret);
@@ -496,7 +496,7 @@ class CommandSetEX : public Commander {
   }
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.SetEX(args_[1], args_[3], ttl_);
     *output = Redis::SimpleString("OK");
     return Status::OK();
@@ -524,7 +524,7 @@ class CommandPSetEX : public Commander {
   }
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.SetEX(args_[1], args_[3], ttl_);
     *output = Redis::SimpleString("OK");
     return Status::OK();
@@ -544,7 +544,7 @@ class CommandMSet : public Commander {
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     std::vector<StringPair> kvs;
     for (size_t i = 1; i < args_.size(); i+=2) {
       kvs.emplace_back(StringPair{args_[i], args_[i+1]});
@@ -563,7 +563,7 @@ class CommandSetNX : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.SetNX(args_[1], args_[2], 0, &ret);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -585,7 +585,7 @@ class CommandMSetNX : public Commander {
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
     std::vector<StringPair> kvs;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     for (size_t i = 1; i < args_.size(); i+=2) {
       kvs.emplace_back(StringPair{args_[i], args_[i+1]});
     }
@@ -603,7 +603,7 @@ class CommandIncr : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int64_t ret;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.IncrBy(args_[1], 1, &ret);
     if (!s.ok()) return Status(Status::RedisExecErr, s.ToString());
     *output = Redis::Integer(ret);
@@ -615,7 +615,7 @@ class CommandDecr : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int64_t ret;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.IncrBy(args_[1], -1, &ret);
     if (!s.ok()) return Status(Status::RedisExecErr, s.ToString());
     *output = Redis::Integer(ret);
@@ -636,7 +636,7 @@ class CommandIncrBy : public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int64_t ret;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.IncrBy(args_[1], increment_, &ret);
     if (!s.ok()) return Status(Status::RedisExecErr, s.ToString());
     *output = Redis::Integer(ret);
@@ -660,7 +660,7 @@ class CommandIncrByFloat : public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     double ret;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.IncrByFloat(args_[1], increment_, &ret);
     if (!s.ok()) return Status(Status::RedisExecErr, s.ToString());
     *output = Redis::BulkString(Util::Float2String(ret));
@@ -684,7 +684,7 @@ class CommandDecrBy : public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int64_t ret;
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = string_db.IncrBy(args_[1], -1 * increment_, &ret);
     if (!s.ok()) return Status(Status::RedisExecErr, s.ToString());
     *output = Redis::Integer(ret);
@@ -724,7 +724,7 @@ class CommandCAS : public Commander {
   }
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s;
     int ret = 0;
     s = string_db.CAS(args_[1], args_[2], args_[3], ttl_, &ret);
@@ -742,7 +742,7 @@ class CommandCAS : public Commander {
 class CommandCAD : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::String string_db(storage, table_id);
+    Redis::String string_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s;
     int ret = 0;
     s = string_db.CAD(args_[1], args_[2], &ret);
@@ -757,13 +757,11 @@ class CommandCAD : public Commander {
 class CommandDel : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    if (batch != nullptr) batch->Clear();
     int cnt = 0;
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     for (unsigned int i = 1; i < args_.size(); i++) {
       rocksdb::Status s = redis.Del(args_[i]);
       if (s.ok()) cnt++;
-      batch->Delete(args_[i]);
     }
     *output = Redis::Integer(cnt);
     return Status::OK();
@@ -942,7 +940,7 @@ class CommandBitOp : public Commander {
 class CommandType : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     RedisType type;
     rocksdb::Status s = redis.Type(args_[1], &type);
     if (s.ok()) {
@@ -958,7 +956,7 @@ class CommandObject : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     if (Util::ToLower(args_[1]) == "dump") {
-      Redis::Database redis(storage, table_id);
+      Redis::Database redis(storage, table_id, batch, skip_write_db_);
       std::vector<std::string> infos;
       rocksdb::Status s = redis.Dump(args_[2], &infos);
       if (!s.ok()) {
@@ -979,7 +977,7 @@ class CommandObject : public Commander {
 class CommandTTL : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     int ttl;
     rocksdb::Status s = redis.TTL(args_[1], &ttl);
     if (s.ok()) {
@@ -994,7 +992,7 @@ class CommandTTL : public Commander {
 class CommandPTTL : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     int ttl;
     rocksdb::Status s = redis.TTL(args_[1], &ttl);
     if (!s.ok()) return Status(Status::RedisExecErr, s.ToString());
@@ -1011,7 +1009,7 @@ class CommandExists : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int cnt = 0;
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     std::vector<rocksdb::Slice> keys;
     for (unsigned i = 1; i < args_.size(); i++) {
       keys.emplace_back(args_[i]);
@@ -1040,7 +1038,7 @@ class CommandExpire : public Commander {
   }
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = redis.Expire(args_[1], seconds_);
     if (s.ok()) {
       *output = Redis::Integer(1);
@@ -1077,7 +1075,7 @@ class CommandPExpire : public Commander {
   }
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = redis.Expire(args_[1], seconds_);
     if (s.ok()) {
       *output = Redis::Integer(1);
@@ -1105,7 +1103,7 @@ class CommandExpireAt : public Commander {
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = redis.Expire(args_[1], timestamp_);
     if (s.ok()) {
       *output = Redis::Integer(1);
@@ -1133,7 +1131,7 @@ class CommandPExpireAt : public Commander {
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = redis.Expire(args_[1], timestamp_);
     if (s.ok()) {
       *output = Redis::Integer(1);
@@ -1152,7 +1150,7 @@ class CommandPersist : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ttl;
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = redis.TTL(args_[1], &ttl);
     if (!s.ok()) return Status(Status::RedisExecErr, s.ToString());
     if (ttl == -1 || ttl == -2) {
@@ -4210,7 +4208,7 @@ class CommandScan : public CommandScanBase {
     return Redis::Array(list);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Database redis_db(storage, table_id);
+    Redis::Database redis_db(storage, table_id, batch, skip_write_db_);
     std::vector<std::string> keys;
     std::string end_cursor;
     auto s = redis_db.Scan(cursor, limit, prefix, &keys, &end_cursor);
@@ -4281,7 +4279,7 @@ class CommandRandomKey : public Commander {
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     std::string key;
     auto cursor = svr->GetLastRandomKeyCursor();
-    Redis::Database redis(storage, table_id);
+    Redis::Database redis(storage, table_id, batch, skip_write_db_);
     redis.RandomKey(cursor, &key);
     svr->SetLastRandomKeyCursor(key);
     *output = Redis::BulkString(key);

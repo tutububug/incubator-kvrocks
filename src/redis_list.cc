@@ -59,10 +59,7 @@ rocksdb::Status List::push(const Slice &user_key,
   AppendNamespacePrefix(user_key, &ns_key);
 
   ListMetadata metadata;
-  rocksdb::WriteBatch batch;
   RedisCommand cmd = left ? kRedisCmdLPush : kRedisCmdRPush;
-  WriteBatchLogData log_data(kRedisList, {std::to_string(cmd)});
-  batch.PutLogData(log_data.Encode());
   LockGuard guard(storage_->GetLockManager(), ns_key);
   rocksdb::Status s = GetMetadata(ns_key, &metadata);
   if (!s.ok() && !(create_if_missing && s.IsNotFound())) {
@@ -73,7 +70,7 @@ rocksdb::Status List::push(const Slice &user_key,
     std::string index_buf, sub_key;
     PutFixed64(&index_buf, index);
     InternalKey(ns_key, index_buf, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
-    batch.Put(sub_key, elem);
+    batch_->Put(sub_key, elem);
     left ? --index : ++index;
   }
   if (left) {
@@ -84,9 +81,9 @@ rocksdb::Status List::push(const Slice &user_key,
   std::string bytes;
   metadata.size += elems.size();
   metadata.Encode(&bytes);
-  batch.Put(ns_key, bytes);
+  batch_->Put(ns_key, bytes);
   *ret = metadata.size;
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 rocksdb::Status List::Pop(const Slice &user_key, bool left, std::string *elem) {
@@ -112,10 +109,7 @@ rocksdb::Status List::PopMulti(const rocksdb::Slice &user_key, bool left, uint32
   rocksdb::Status s = GetMetadata(ns_key, &metadata);
   if (!s.ok()) return s;
 
-  rocksdb::WriteBatch batch;
   RedisCommand cmd = left ? kRedisCmdLPop : kRedisCmdRPop;
-  WriteBatchLogData log_data(kRedisList, {std::to_string(cmd)});
-  batch.PutLogData(log_data.Encode());
 
   while (metadata.size > 0 && count > 0) {
     uint64_t index = left ? metadata.head : metadata.tail - 1;
@@ -131,21 +125,21 @@ rocksdb::Status List::PopMulti(const rocksdb::Slice &user_key, bool left, uint32
     }
 
     elems->push_back(elem);
-    batch.Delete(sub_key);
+    batch_->Delete(sub_key);
     metadata.size -= 1;
     left ? ++metadata.head : --metadata.tail;
     --count;
   }
 
   if (metadata.size == 0) {
-    batch.Delete(ns_key);
+    batch_->Delete(ns_key);
   } else {
     std::string bytes;
     metadata.Encode(&bytes);
-    batch.Put(ns_key, bytes);
+    batch_->Put(ns_key, bytes);
   }
 
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 /*
@@ -212,12 +206,8 @@ rocksdb::Status List::Rem(const Slice &user_key, int count, const Slice &elem, i
     return rocksdb::Status::NotFound();
   }
 
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData log_data(kRedisList, {std::to_string(kRedisCmdLRem), std::to_string(count), elem.ToString()});
-  batch.PutLogData(log_data.Encode());
-
   if (to_delete_indexes.size() == metadata.size) {
-    batch.Delete(ns_key);
+    batch_->Delete(ns_key);
   } else {
     std::string to_update_key, to_delete_key;
     uint64_t min_to_delete_index = !reversed ? to_delete_indexes[0] : to_delete_indexes[to_delete_indexes.size() - 1];
@@ -236,7 +226,7 @@ rocksdb::Status List::Rem(const Slice &user_key, int count, const Slice &elem, i
         buf.clear();
         PutFixed64(&buf, reversed ? max_to_delete_index-- : min_to_delete_index++);
         InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&to_update_key);
-        batch.Put(to_update_key, iter->value());
+        batch_->Put(to_update_key, iter->value());
       } else {
         count++;
       }
@@ -246,7 +236,7 @@ rocksdb::Status List::Rem(const Slice &user_key, int count, const Slice &elem, i
       buf.clear();
       PutFixed64(&buf, reversed ? (metadata.head + idx) : (metadata.tail - 1 - idx));
       InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&to_delete_key);
-      batch.Delete(to_delete_key);
+      batch_->Delete(to_delete_key);
     }
     if (reversed) {
       metadata.head += to_delete_indexes.size();
@@ -256,11 +246,11 @@ rocksdb::Status List::Rem(const Slice &user_key, int count, const Slice &elem, i
     metadata.size -= to_delete_indexes.size();
     std::string bytes;
     metadata.Encode(&bytes);
-    batch.Put(ns_key, bytes);
+    batch_->Put(ns_key, bytes);
   }
 
   *ret = static_cast<int>(to_delete_indexes.size());
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 rocksdb::Status List::Insert(const Slice &user_key, const Slice &pivot, const Slice &elem, bool before, int *ret) {
@@ -303,14 +293,6 @@ rocksdb::Status List::Insert(const Slice &user_key, const Slice &pivot, const Sl
     return rocksdb::Status::NotFound();
   }
 
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData log_data(kRedisList,
-                             {std::to_string(kRedisCmdLInsert),
-                              before ? "1" : "0",
-                              pivot.ToString(),
-                              elem.ToString()});
-  batch.PutLogData(log_data.Encode());
-
   std::string to_update_key;
   uint64_t left_part_len = pivot_index - metadata.head + (before ? 0 : 1);
   uint64_t right_part_len = metadata.tail - 1 - pivot_index + (before ? 1 : 0);
@@ -327,12 +309,12 @@ rocksdb::Status List::Insert(const Slice &user_key, const Slice &pivot, const Sl
     buf.clear();
     PutFixed64(&buf, reversed ? --pivot_index : ++pivot_index);
     InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&to_update_key);
-    batch.Put(to_update_key, iter->value());
+    batch_->Put(to_update_key, iter->value());
   }
   buf.clear();
   PutFixed64(&buf, new_elem_index);
   InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&to_update_key);
-  batch.Put(to_update_key, elem);
+  batch_->Put(to_update_key, elem);
 
   if (reversed) {
     metadata.head--;
@@ -342,10 +324,10 @@ rocksdb::Status List::Insert(const Slice &user_key, const Slice &pivot, const Sl
   metadata.size++;
   std::string bytes;
   metadata.Encode(&bytes);
-  batch.Put(ns_key, bytes);
+  batch_->Put(ns_key, bytes);
 
   *ret = metadata.size;
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 rocksdb::Status List::Index(const Slice &user_key, int index, std::string *elem) {
@@ -440,12 +422,8 @@ rocksdb::Status List::Set(const Slice &user_key, int index, Slice elem) {
   }
   if (value == elem) return rocksdb::Status::OK();
 
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData
-      log_data(kRedisList, {std::to_string(kRedisCmdLSet), std::to_string(index)});
-  batch.PutLogData(log_data.Encode());
-  batch.Put(sub_key, elem);
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  batch_->Put(sub_key, elem);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 rocksdb::Status List::RPopLPush(const Slice &src, const Slice &dst, std::string *elem) {
@@ -507,11 +485,7 @@ rocksdb::Status List::lmoveOnSingleList(const rocksdb::Slice &src, bool src_left
     return rocksdb::Status::OK();
   }
 
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData log_data(kRedisList, {std::to_string(kRedisCmdLMove)});
-  batch.PutLogData(log_data.Encode());
-
-  batch.Delete(curr_sub_key);
+  batch_->Delete(curr_sub_key);
 
   if (src_left) {
     ++metadata.head;
@@ -526,13 +500,13 @@ rocksdb::Status List::lmoveOnSingleList(const rocksdb::Slice &src, bool src_left
   PutFixed64(&new_index_buf, new_index);
   std::string new_sub_key;
   InternalKey(ns_key, new_index_buf, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&new_sub_key);
-  batch.Put(new_sub_key, *elem);
+  batch_->Put(new_sub_key, *elem);
 
   std::string bytes;
   metadata.Encode(&bytes);
-  batch.Put(ns_key, bytes);
+  batch_->Put(ns_key, bytes);
 
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 rocksdb::Status List::lmoveOnTwoLists(const rocksdb::Slice &src, const rocksdb::Slice &dst,
@@ -558,10 +532,6 @@ rocksdb::Status List::lmoveOnTwoLists(const rocksdb::Slice &src, const rocksdb::
 
   elem->clear();
 
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData log_data(kRedisList, {std::to_string(kRedisCmdLMove)});
-  batch.PutLogData(log_data.Encode());
-
   uint64_t src_index = src_left ? src_metadata.head : src_metadata.tail - 1;
   std::string src_buf;
   PutFixed64(&src_buf, src_index);
@@ -572,15 +542,15 @@ rocksdb::Status List::lmoveOnTwoLists(const rocksdb::Slice &src, const rocksdb::
     return s;
   }
 
-  batch.Delete(src_sub_key);
+  batch_->Delete(src_sub_key);
   if (src_metadata.size == 1) {
-    batch.Delete(src_ns_key);
+    batch_->Delete(src_ns_key);
   } else {
     std::string bytes;
     src_metadata.size -= 1;
     src_left ? ++src_metadata.head : --src_metadata.tail;
     src_metadata.Encode(&bytes);
-    batch.Put(src_ns_key, bytes);
+    batch_->Put(src_ns_key, bytes);
   }
 
   uint64_t dst_index = dst_left ? dst_metadata.head - 1 : dst_metadata.tail;
@@ -588,15 +558,15 @@ rocksdb::Status List::lmoveOnTwoLists(const rocksdb::Slice &src, const rocksdb::
   PutFixed64(&dst_buf, dst_index);
   std::string dst_sub_key;
   InternalKey(dst_ns_key, dst_buf, dst_metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&dst_sub_key);
-  batch.Put(dst_sub_key, *elem);
+  batch_->Put(dst_sub_key, *elem);
   dst_left ? --dst_metadata.head : ++dst_metadata.tail;
 
   std::string bytes;
   dst_metadata.size += 1;
   dst_metadata.Encode(&bytes);
-  batch.Put(dst_ns_key, bytes);
+  batch_->Put(dst_ns_key, bytes);
 
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 // Caution: trim the big list may block the server
@@ -615,15 +585,11 @@ rocksdb::Status List::Trim(const Slice &user_key, int start, int stop) {
   // the result will be empty list when start > stop,
   // or start is larger than the end of list
   if (start > stop) {
-    return storage_->Delete(rocksdb::WriteOptions(), ns_key);
+    batch_->Delete(ns_key);
+    return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
   }
   if (start < 0) start = 0;
 
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData log_data(kRedisList,
-                             std::vector<std::string>{std::to_string(kRedisCmdLTrim), std::to_string(start),
-                                                      std::to_string(stop)});
-  batch.PutLogData(log_data.Encode());
   uint64_t left_index = metadata.head + start;
   uint64_t right_index = metadata.head + stop + 1;
   for (uint64_t i = metadata.head; i < left_index; i++) {
@@ -631,7 +597,7 @@ rocksdb::Status List::Trim(const Slice &user_key, int start, int stop) {
     PutFixed64(&buf, i);
     std::string sub_key;
     InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
-    batch.Delete(sub_key);
+    batch_->Delete(sub_key);
     metadata.head++;
     trim_cnt++;
   }
@@ -641,7 +607,7 @@ rocksdb::Status List::Trim(const Slice &user_key, int start, int stop) {
     PutFixed64(&buf, i);
     std::string sub_key;
     InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
-    batch.Delete(sub_key);
+    batch_->Delete(sub_key);
     metadata.tail--;
     trim_cnt++;
   }
@@ -652,7 +618,7 @@ rocksdb::Status List::Trim(const Slice &user_key, int start, int stop) {
   }
   std::string bytes;
   metadata.Encode(&bytes);
-  batch.Put(ns_key, bytes);
-  return storage_->Write(rocksdb::WriteOptions(), &batch);
+  batch_->Put(ns_key, bytes);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 }  // namespace Redis

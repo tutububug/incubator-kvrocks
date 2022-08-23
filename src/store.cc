@@ -4,17 +4,17 @@
 namespace Redis {
 
 Storage::Storage(rocksdb::DB* db):
-        db_(db) {
-    lock_mgr_ = new LockManager(16);
+    db_(db) {
+  lock_mgr_ = new LockManager(16);
 }
 
 Storage::~Storage() {
-    db_->Close();
-    delete lock_mgr_;
+  db_->Close();
+  delete lock_mgr_;
 }
 
 Status Storage::Open() {
-    return Status::OK();
+  return Status::OK();
 }
 
 rocksdb::Status Storage::Compact(const rocksdb::Slice *begin, const rocksdb::Slice *end) {
@@ -24,40 +24,27 @@ rocksdb::Status Storage::Compact(const rocksdb::Slice *begin, const rocksdb::Sli
 //        rocksdb::Status s = db_->CompactRange(compact_opts, cf_handle, begin, end);
 //        if (!s.ok()) return s;
 //    }
-    return rocksdb::Status::OK();
+  return rocksdb::Status::OK();
 }
 
 LockManager* Storage::GetLockManager() {
-    return lock_mgr_;
+  return lock_mgr_;
 }
 
 rocksdb::DB* Storage::GetDB() {
-    return db_;
+  return db_;
 }
 
 bool Storage::IsSlotIdEncoded() {
-    return false;
+  return false;
 }
 
-rocksdb::Status Storage::Write(const rocksdb::WriteOptions& options, rocksdb::WriteBatch* updates) {
+rocksdb::Status Storage::Write(const rocksdb::WriteOptions& options, rocksdb::WriteBatch* updates, bool skip_write_db) {
+  if (skip_write_db) {
+    return rocksdb::Status::OK();
+  } else {
     return db_->Write(options, updates);
-}
-
-rocksdb::Status Storage::Delete(const rocksdb::WriteOptions& options, const rocksdb::Slice& key) {
-    return db_->Delete(options, key);
-}
-
-rocksdb::Status Storage::DeleteRange(const rocksdb::Slice& first_key, const rocksdb::Slice& last_key) {
-    rocksdb::WriteBatch batch;
-    auto s = batch.DeleteRange(first_key, last_key);
-    if (!s.ok()) {
-        return s;
-    }
-    s = batch.Delete(last_key);
-    if (!s.ok()) {
-        return s;
-    }
-    return Write(rocksdb::WriteOptions(), &batch);
+  }
 }
 
 }

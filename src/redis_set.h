@@ -30,8 +30,8 @@ namespace Redis {
 
 class Set : public SubKeyScanner {
  public:
-  explicit Set(Redis::Storage* storage, int64_t table_id)
-      : SubKeyScanner(storage, table_id) {}
+  explicit Set(Redis::Storage* storage, int64_t table_id, rocksdb::WriteBatch* batch, bool skip_write_db)
+      : SubKeyScanner(storage, table_id, batch, skip_write_db) {}
 
   rocksdb::Status Card(const Slice &user_key, int *ret);
   rocksdb::Status IsMember(const Slice &user_key, const Slice &member, int *ret);

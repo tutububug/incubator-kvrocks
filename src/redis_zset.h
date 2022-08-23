@@ -89,8 +89,8 @@ namespace Redis {
 
 class ZSet : public SubKeyScanner {
  public:
-  explicit ZSet(Redis::Storage* storage, int64_t table_id) :
-      SubKeyScanner(storage, table_id) {}
+  explicit ZSet(Redis::Storage* storage, int64_t table_id, rocksdb::WriteBatch* batch, bool skip_write_db) :
+      SubKeyScanner(storage, table_id, batch, skip_write_db) {}
   rocksdb::Status Add(const Slice &user_key, uint8_t flags, std::vector<MemberScore> *mscores, int *ret);
   rocksdb::Status Card(const Slice &user_key, int *ret);
   rocksdb::Status Count(const Slice &user_key, const ZRangeSpec &spec, int *ret);

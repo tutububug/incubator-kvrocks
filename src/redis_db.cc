@@ -32,10 +32,9 @@ const char *kDefaultNamespace = "__namespace";
 
 namespace Redis {
 
-Database::Database(Redis::Storage* storage, int64_t table_id) {
-  storage_ = storage;
+Database::Database(Redis::Storage* storage, int64_t table_id, rocksdb::WriteBatch* batch, bool skip_write_db):
+    storage_(storage), table_id_(table_id), batch_(batch), skip_write_db_(skip_write_db) {
   db_ = storage->GetDB();
-  table_id_ = table_id;
 }
 
 rocksdb::Status Database::GetMetadata(RedisType type, const Slice &ns_key, Metadata *metadata) {
@@ -96,11 +95,8 @@ rocksdb::Status Database::Expire(const Slice &user_key, int timestamp) {
   memcpy(buf, value.data(), value.size());
   // +1 to skip the flags
   EncodeFixed32(buf + 1, (uint32_t) timestamp);
-  rocksdb::WriteBatch batch;
-  WriteBatchLogData log_data(kRedisNone, {std::to_string(kRedisCmdExpire)});
-  batch.PutLogData(log_data.Encode());
-  batch.Put(ns_key, Slice(buf, value.size()));
-  s = storage_->Write(rocksdb::WriteOptions(), &batch);
+  batch_->Put(ns_key, Slice(buf, value.size()));
+  s = storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
   delete[]buf;
   return s;
 }
@@ -118,7 +114,8 @@ rocksdb::Status Database::Del(const Slice &user_key) {
   if (metadata.Expired()) {
     return rocksdb::Status::NotFound(kErrMsgKeyExpired);
   }
-  return storage_->Delete(rocksdb::WriteOptions(), ns_key);
+  batch_->Delete(ns_key);
+  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
 }
 
 rocksdb::Status Database::Exists(const std::vector<Slice> &keys, int *ret) {
@@ -382,7 +379,8 @@ rocksdb::Status Database::FlushAll() {
     return rocksdb::Status::OK();
   }
   auto last_key = iter->key().ToString();
-  auto s = storage_->DeleteRange(first_key, last_key);
+  batch_->DeleteRange(first_key, last_key);
+  auto s = storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
   if (!s.ok()) {
     return s;
   }

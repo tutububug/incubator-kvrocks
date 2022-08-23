@@ -35,7 +35,7 @@ namespace Redis {
 
 class Database {
  public:
-  explicit Database(Redis::Storage* storage, int64_t table_id);
+  explicit Database(Redis::Storage* storage, int64_t table_id, rocksdb::WriteBatch* batch, bool skip_write_db);
   rocksdb::Status GetMetadata(RedisType type, const Slice &ns_key, Metadata *metadata);
   rocksdb::Status GetRawMetadata(const Slice &ns_key, std::string *bytes);
   rocksdb::Status GetRawMetadataByUserKey(const Slice &user_key, std::string *bytes);
@@ -68,9 +68,11 @@ class Database {
                                   int count);
 
  protected:
-  Redis::Storage *storage_;
-  rocksdb::DB *db_;
-  int64_t table_id_;
+  Redis::Storage *storage_ = nullptr;
+  rocksdb::DB *db_ = nullptr;
+  int64_t table_id_ = 0;
+  rocksdb::WriteBatch* batch_ = nullptr;
+  bool skip_write_db_ = false;
 
   class LatestSnapShot {
    public:
@@ -89,8 +91,8 @@ class Database {
 
 class SubKeyScanner : public Redis::Database {
  public:
-  explicit SubKeyScanner(Redis::Storage *storage, int64_t table_id)
-      : Database(storage, table_id) {}
+  explicit SubKeyScanner(Redis::Storage *storage, int64_t table_id, rocksdb::WriteBatch* batch, bool skip_write_db)
+      : Database(storage, table_id, batch, skip_write_db) {}
   rocksdb::Status Scan(RedisType type,
                        const Slice &user_key,
                        const std::string &cursor,
