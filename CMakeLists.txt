@@ -85,7 +85,8 @@ set(TESTS_SRCS
 #        tests/cppunit/t_zset_test.cc
         tests/cppunit/encoding_test.cc
         tests/cppunit/request_test.cc
+        tests/cppunit/redis_processor_test.cc
         )
 add_executable(unittest ${TESTS_SRCS})
 add_dependencies(unittest gtest redisdb rocksdb snappy lz4 glog)
-target_link_libraries(unittest PUBLIC -lgtestd -lredisdb -lrocksdb -lsnappy -llz4)
+target_link_libraries(unittest PUBLIC -lgtestd -lredisdb -lrocksdb -lsnappy -llz4 -lglogd)

@@ -49,7 +49,7 @@ Status Request::Tokenize(const std::string& input) {
         auto line = std::string(std::begin(input)+last_pos, std::begin(input)+pos);
         last_pos = pos+2;
 
-        if (line.size() <= 2) {
+        if (line.size() < 2) {
           return Status(Status::NotOK, "Protocol error: array_len line length less than 2");
         }
         if (line[0] == '*') {
@@ -85,7 +85,7 @@ Status Request::Tokenize(const std::string& input) {
         auto line = std::string(std::begin(input)+last_pos, std::begin(input)+pos);
         last_pos = pos+2;
 
-        if (line.size() <= 2) {
+        if (line.size() < 2) {
           return Status(Status::NotOK, "Protocol error: bulk_len line length less than 2");
         }
         if (line[0] != '$') {

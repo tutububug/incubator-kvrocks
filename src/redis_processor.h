@@ -9,7 +9,10 @@ namespace Redis {
 
 class Processor {
 public:
-  explicit Processor(Storage* s): storage_(s) {}
+  explicit Processor(Storage* s): storage_(s) {
+    InitCommandsTable();
+    PopulateCommands();
+  }
 
   Processor() = delete;
   Processor(const Processor& p) = delete;

@@ -346,22 +346,21 @@ rocksdb::Status Database::RandomKey(const std::string &cursor, std::string *key)
 }
  */
 
-/*
 rocksdb::Status Database::FlushDB() {
   std::string prefix, begin_key, end_key;
-  ComposeNamespaceKey(table_id_, "", &prefix, false);
+  ComposeNamespaceKey(table_id_, "", &prefix, false, kColumnFamilyIDMetadata);
   auto s = FindKeyRangeWithPrefix(prefix, std::string(), &begin_key, &end_key);
   if (!s.ok()) {
     return rocksdb::Status::OK();
   }
-  s = storage_->DeleteRange(begin_key, end_key);
+  batch_->DeleteRange(begin_key, end_key);
+  s = storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
   if (!s.ok()) {
     return s;
   }
 
   return rocksdb::Status::OK();
 }
- */
 
 rocksdb::Status Database::FlushAll() {
   LatestSnapShot ss(db_);
