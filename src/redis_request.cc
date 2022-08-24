@@ -39,9 +39,9 @@ Status Request::Tokenize(const std::string& input) {
       case ArrayLen: {
         auto pos = input.find("\r\n", last_pos);
         if (pos == std::string::npos) {
-          if (pos != input.size()-1) {
+          if (last_pos != input.size()) {
             std::ostringstream ss;
-            ss << "invalid input protocol: left=" << std::string(input, last_pos);
+            ss << "invalid input protocol at array length: left=" << std::string(input, last_pos);
             return Status(Status::NotOK, ss.str());
           }
           return Status::OK();
@@ -49,6 +49,9 @@ Status Request::Tokenize(const std::string& input) {
         auto line = std::string(std::begin(input)+last_pos, std::begin(input)+pos);
         last_pos = pos+2;
 
+        if (line.size() <= 2) {
+          return Status(Status::NotOK, "Protocol error: array_len line length less than 2");
+        }
         if (line[0] == '*') {
           try {
             multi_bulk_len_ = std::stoll(std::string(line.c_str() + 1, line.size() - 1));
@@ -56,16 +59,15 @@ Status Request::Tokenize(const std::string& input) {
             return Status(Status::NotOK, "Protocol error: invalid multibulk length");
           }
           if (multi_bulk_len_ <= 0) {
-            multi_bulk_len_ = 0;
-            continue;
+            return Status(Status::NotOK, "Protocol error: multibulk length less than 0");
           }
           if (multi_bulk_len_ > (int64_t)PROTO_MULTI_MAX_SIZE) {
-            return Status(Status::NotOK, "Protocol error: invalid multibulk length");
+            return Status(Status::NotOK, "Protocol error: multibulk length too long");
           }
           state_ = BulkLen;
         } else {
           if (line.size() > PROTO_INLINE_MAX_SIZE) {
-            return Status(Status::NotOK, "Protocol error: invalid bulk length");
+            return Status(Status::NotOK, "Protocol error: bulk length too long");
           }
           tokens_ = Util::Split(std::string(line.c_str(), line.size()), " \t");
           commands_.emplace_back(std::move(tokens_));
@@ -76,17 +78,16 @@ Status Request::Tokenize(const std::string& input) {
       case BulkLen: {
         auto pos = input.find("\r\n", last_pos);
         if (pos == std::string::npos) {
-          if (pos != input.size()-1) {
-            std::ostringstream ss;
-            ss << "invalid input protocol: left=" << std::string(input, last_pos);
-            return Status(Status::NotOK, ss.str());
-          }
-          return Status::OK();
+          std::ostringstream ss;
+          ss << "invalid input protocol at bulk length: left=" << std::string(input, last_pos);
+          return Status(Status::NotOK, ss.str());
         }
         auto line = std::string(std::begin(input)+last_pos, std::begin(input)+pos);
         last_pos = pos+2;
 
-        if (line.size() <= 0) return Status::OK();
+        if (line.size() <= 2) {
+          return Status(Status::NotOK, "Protocol error: bulk_len line length less than 2");
+        }
         if (line[0] != '$') {
           return Status(Status::NotOK, "Protocol error: expected '$'");
         }
@@ -102,6 +103,10 @@ Status Request::Tokenize(const std::string& input) {
         break;
       }
       case BulkData:
+        if (input.size() < last_pos + bulk_len_ + 2) {
+          return Status(Status::NotOK, "Protocol error: bulk_data length too long");
+        }
+
         auto line = std::string(input, last_pos, bulk_len_);
         last_pos += bulk_len_+2;
 

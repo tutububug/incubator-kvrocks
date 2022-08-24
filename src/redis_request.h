@@ -26,8 +26,6 @@
 
 #include "status.h"
 
-class Server;
-
 namespace Redis {
 
 using CommandTokens = std::vector<std::string>;

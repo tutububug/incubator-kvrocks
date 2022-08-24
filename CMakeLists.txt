@@ -84,6 +84,7 @@ set(TESTS_SRCS
         tests/cppunit/t_string_test.cc
 #        tests/cppunit/t_zset_test.cc
         tests/cppunit/encoding_test.cc
+        tests/cppunit/request_test.cc
         )
 add_executable(unittest ${TESTS_SRCS})
 add_dependencies(unittest gtest redisdb rocksdb snappy lz4 glog)
