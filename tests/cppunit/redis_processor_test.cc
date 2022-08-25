@@ -52,4 +52,5 @@ TEST_F(RedisProcessorTest, C) {
   assert(res.err_len == 0);
   assert(strcmp(res.resp_cstr, "+OK\r\n") == 0);
   assert(strlen(res.resp_cstr) == strlen("+OK\r\n"));
+  free_redis_processor_handle_result(&res);
 }

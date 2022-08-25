@@ -17,6 +17,9 @@ typedef struct redis_processor_handle_result {
 redis_processor_handle_result_t
 redis_processor_handle(rocksdb_t* db, int64_t table_id, const char* req_cstr, size_t req_len);
 
+void
+free_redis_processor_handle_result(redis_processor_handle_result_t* res);
+
 #ifdef __cplusplus
 }
 #endif
