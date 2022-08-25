@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 project(rockdis
         DESCRIPTION "storage engine of redis data structure on rocksdb"
-        LANGUAGES CXX)
+        LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -64,11 +64,11 @@ set(REDISDB_SRCS
         src/redis_slot.cc
         src/redis_key_encoding.cc
         src/redis_processor.cc
+        src/redis_processor_c.cc
         src/redis_request.cc
         src/redis_cmd.cc
         src/redis_reply.cc
         )
-
 add_library(redisdb STATIC ${REDISDB_SRCS})
 
 # unit test

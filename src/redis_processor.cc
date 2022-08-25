@@ -2,6 +2,15 @@
 
 namespace Redis {
 
+std::unique_ptr<Processor> gProcessor = nullptr;
+
+std::unique_ptr<Processor>& Processor::New(rocksdb::DB* db) {
+  if (gProcessor == nullptr) {
+    gProcessor.reset(new Processor(new Storage(db)));
+  }
+  return gProcessor;
+}
+
 Status Processor::Do(std::string& resp_str, rocksdb::WriteBatch* batch, int64_t table_id, const std::string& req_str) {
   Request req;
   auto s = req.Tokenize(req_str);

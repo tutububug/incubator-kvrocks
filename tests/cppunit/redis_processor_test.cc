@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <redis_processor_c.h>
 
 #include "redis_processor.h"
 #include "test_base.h"
@@ -39,4 +40,16 @@ TEST_F(RedisProcessorTest, String_Base) {
     assert(s.IsOK());
     assert(resp_str == ":1\r\n");
   }
+}
+
+TEST_F(RedisProcessorTest, C) {
+  int64_t table_id = 1;
+  const char* req_str = "*3\r\n$3\r\nset\r\n$1\r\na\r\n$4\r\n1234\r\n";
+  size_t req_len = strlen(req_str);
+
+  auto res = redis_processor_handle(reinterpret_cast<rocksdb_t*>(storage_->GetDB()), table_id, req_str, req_len);
+  assert(res.err_msg == NULL);
+  assert(res.err_len == 0);
+  assert(strcmp(res.resp_cstr, "+OK\r\n") == 0);
+  assert(strlen(res.resp_cstr) == strlen("+OK\r\n"));
 }

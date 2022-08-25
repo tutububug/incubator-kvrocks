@@ -1,6 +1,7 @@
 #pragma once
 
 #include <rocksdb/db.h>
+#include <rocksdb/c.h>
 #include "store.h"
 #include "redis_cmd.h"
 #include "redis_request.h"
@@ -17,6 +18,8 @@ public:
   Processor() = delete;
   Processor(const Processor& p) = delete;
   Processor& operator=(const Processor& p) = delete;
+
+  static std::unique_ptr<Processor>& New(rocksdb::DB* db);
 
 public:
   Status Do(std::string& resp_str, rocksdb::WriteBatch* batch, int64_t table_id, const std::string& req_str);
