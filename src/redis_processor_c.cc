@@ -26,7 +26,10 @@ redis_processor_handle(rocksdb_t* db, int64_t table_id, const char* req_cstr, si
 void free_redis_processor_handle_result(redis_processor_handle_result_t* res) {
   if (res->err_msg) free(res->err_msg);
   if (res->resp_cstr) free(res->resp_cstr);
-  if (res->batch) free(res->batch);
+  if (res->batch) {
+    rocksdb_writebatch_clear(res->batch);
+    free(res->batch);
+  }
 }
 
 void copy_string_to_char_array(char** out, size_t* out_len, const std::string& in) {
