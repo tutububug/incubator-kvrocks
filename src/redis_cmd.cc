@@ -1163,11 +1163,12 @@ class CommandPersist : public Commander {
     return Status::OK();
   }
 };
+#endif
 
 class CommandHGet : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     std::string value;
     rocksdb::Status s = hash_db.Get(args_[1], args_[2], &value);
     if (!s.ok() && !s.IsNotFound()) {
@@ -1182,7 +1183,7 @@ class CommandHSetNX : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = hash_db.SetNX(args_[1], args_[2], args_[3], &ret);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -1195,7 +1196,7 @@ class CommandHSetNX : public Commander {
 class CommandHStrlen : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     std::string value;
     rocksdb::Status s = hash_db.Get(args_[1], args_[2], &value);
     if (!s.ok() && !s.IsNotFound()) {
@@ -1210,7 +1211,7 @@ class CommandHDel : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     std::vector<Slice> fields;
     for (unsigned int i = 2; i < args_.size(); i++) {
       fields.emplace_back(Slice(args_[i]));
@@ -1227,7 +1228,7 @@ class CommandHDel : public Commander {
 class CommandHExists : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     std::string value;
     rocksdb::Status s = hash_db.Get(args_[1], args_[2], &value);
     if (!s.ok() && !s.IsNotFound()) {
@@ -1242,7 +1243,7 @@ class CommandHLen : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     uint32_t count;
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = hash_db.Size(args_[1], &count);
     if (!s.ok() && !s.IsNotFound()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -1264,7 +1265,7 @@ class CommandHIncrBy : public Commander {
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int64_t ret;
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = hash_db.IncrBy(args_[1], args_[2], increment_, &ret);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -1289,7 +1290,7 @@ class CommandHIncrByFloat : public Commander {
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     double ret;
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = hash_db.IncrByFloat(args_[1], args_[2], increment_, &ret);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -1305,7 +1306,7 @@ class CommandHIncrByFloat : public Commander {
 class CommandHMGet : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     std::vector<Slice> fields;
     for (unsigned int i = 2; i < args_.size(); i++) {
       fields.emplace_back(Slice(args_[i]));
@@ -1336,7 +1337,7 @@ class CommandHMSet : public Commander {
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     std::vector<FieldValue> field_values;
     for (unsigned int i = 2; i < args_.size(); i += 2) {
       field_values.emplace_back(FieldValue{args_[i], args_[i + 1]});
@@ -1357,7 +1358,7 @@ class CommandHMSet : public Commander {
 class CommandHKeys : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     std::vector<FieldValue> field_values;
     rocksdb::Status s = hash_db.GetAll(args_[1], &field_values, HashFetchType::kOnlyKey);
     if (!s.ok()) {
@@ -1375,7 +1376,7 @@ class CommandHKeys : public Commander {
 class CommandHVals : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     std::vector<FieldValue> field_values;
     rocksdb::Status s = hash_db.GetAll(args_[1], &field_values, HashFetchType::kOnlyValue);
     if (!s.ok()) {
@@ -1392,7 +1393,7 @@ class CommandHVals : public Commander {
 class CommandHGetAll : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     std::vector<FieldValue> field_values;
     rocksdb::Status s = hash_db.GetAll(args_[1], &field_values);
     if (!s.ok()) {
@@ -1414,7 +1415,7 @@ class CommandPush : public Commander {
     create_if_missing_ = create_if_missing;
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::List list_db(svr->storage_, conn->GetNamespace());
+    Redis::List list_db(storage, table_id, batch, skip_write_db_);
     std::vector<Slice> elems;
     for (unsigned int i = 2; i < args_.size(); i++) {
       elems.emplace_back(args_[i]);
@@ -1429,8 +1430,6 @@ class CommandPush : public Commander {
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
     }
-
-    svr->WakeupBlockingConns(args_[1], elems.size());
 
     *output = Redis::Integer(ret);
     return Status::OK();
@@ -1485,7 +1484,7 @@ class CommandPop : public Commander {
   }
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::List list_db(svr->storage_, conn->GetNamespace());
+    Redis::List list_db(storage, table_id, batch, skip_write_db_);
     if (with_count_) {
       std::vector<std::string> elems;
       rocksdb::Status s = list_db.PopMulti(args_[1], left_, count_, &elems);
@@ -1529,6 +1528,7 @@ class CommandRPop : public CommandPop {
   CommandRPop() : CommandPop(false) {}
 };
 
+#if 0
 class CommandBPop : public Commander {
  public:
   explicit CommandBPop(bool left) { left_ = left; }
@@ -1668,6 +1668,7 @@ class CommandBRPop : public CommandBPop {
  public:
   CommandBRPop() : CommandBPop(false) {}
 };
+#endif
 
 class CommandLRem : public Commander {
  public:
@@ -1682,7 +1683,7 @@ class CommandLRem : public Commander {
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
-    Redis::List list_db(svr->storage_, conn->GetNamespace());
+    Redis::List list_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = list_db.Rem(args_[1], count_, args_[3], &ret);
     if (!s.ok() && !s.IsNotFound()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -1709,7 +1710,7 @@ class CommandLInsert : public Commander {
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
-    Redis::List list_db(svr->storage_, conn->GetNamespace());
+    Redis::List list_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = list_db.Insert(args_[1], args_[3], args_[4], before_, &ret);
     if (!s.ok() && !s.IsNotFound()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -1734,7 +1735,7 @@ class CommandLRange : public Commander {
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::List list_db(svr->storage_, conn->GetNamespace());
+    Redis::List list_db(storage, table_id, batch, skip_write_db_);
     std::vector<std::string> elems;
     rocksdb::Status s = list_db.Range(args_[1], start_, stop_, &elems);
     if (!s.ok() && !s.IsNotFound()) {
@@ -1751,7 +1752,7 @@ class CommandLRange : public Commander {
 class CommandLLen : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::List list_db(svr->storage_, conn->GetNamespace());
+    Redis::List list_db(storage, table_id, batch, skip_write_db_);
     uint32_t count;
     rocksdb::Status s = list_db.Size(args_[1], &count);
     if (!s.ok() && !s.IsNotFound()) {
@@ -1773,7 +1774,7 @@ class CommandLIndex : public Commander {
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::List list_db(svr->storage_, conn->GetNamespace());
+    Redis::List list_db(storage, table_id, batch, skip_write_db_);
     std::string elem;
     rocksdb::Status s = list_db.Index(args_[1], index_, &elem);
     if (!s.ok() && !s.IsNotFound()) {
@@ -1802,7 +1803,7 @@ class CommandLSet : public Commander {
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::List list_db(svr->storage_, conn->GetNamespace());
+    Redis::List list_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = list_db.Set(args_[1], index_, args_[3]);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -1827,7 +1828,7 @@ class CommandLTrim : public Commander {
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::List list_db(svr->storage_, conn->GetNamespace());
+    Redis::List list_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = list_db.Trim(args_[1], start_, stop_);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -1843,7 +1844,7 @@ class CommandLTrim : public Commander {
 class CommandRPopLPUSH : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::List list_db(svr->storage_, conn->GetNamespace());
+    Redis::List list_db(storage, table_id, batch, skip_write_db_);
     std::string elem;
     rocksdb::Status s = list_db.RPopLPush(args_[1], args_[2], &elem);
     if (!s.ok() && !s.IsNotFound()) {
@@ -1871,7 +1872,7 @@ class CommandLMove : public Commander {
   }
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::List list_db(svr->storage_, conn->GetNamespace());
+    Redis::List list_db(storage, table_id, batch, skip_write_db_);
     std::string elem;
     auto s = list_db.LMove(args_[1], args_[2], src_left_, dst_left_, &elem);
     if (!s.ok() && !s.IsNotFound()) {
@@ -1889,7 +1890,7 @@ class CommandLMove : public Commander {
 class CommandSAdd : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     std::vector<Slice> members;
     for (unsigned int i = 2; i < args_.size(); i++) {
       members.emplace_back(args_[i]);
@@ -1907,7 +1908,7 @@ class CommandSAdd : public Commander {
 class CommandSRem : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     std::vector<Slice> members;
     for (unsigned int i = 2; i < args_.size(); i++) {
       members.emplace_back(args_[i]);
@@ -1925,7 +1926,7 @@ class CommandSRem : public Commander {
 class CommandSCard : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     int ret;
     rocksdb::Status s = set_db.Card(args_[1], &ret);
     if (!s.ok()) {
@@ -1939,7 +1940,7 @@ class CommandSCard : public Commander {
 class CommandSMembers : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     std::vector<std::string> members;
     rocksdb::Status s = set_db.Members(args_[1], &members);
     if (!s.ok()) {
@@ -1953,7 +1954,7 @@ class CommandSMembers : public Commander {
 class CommandSIsMember : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     int ret;
     rocksdb::Status s = set_db.IsMember(args_[1], args_[2], &ret);
     if (!s.ok()) {
@@ -1978,7 +1979,7 @@ class CommandSPop : public Commander {
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     std::vector<std::string> members;
     rocksdb::Status s = set_db.Take(args_[1], &members, count_, true);
     if (!s.ok()) {
@@ -2014,7 +2015,7 @@ class CommandSRandMember : public Commander {
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     std::vector<std::string> members;
     rocksdb::Status s = set_db.Take(args_[1], &members, count_, false);
     if (!s.ok()) {
@@ -2031,7 +2032,7 @@ class CommandSRandMember : public Commander {
 class CommandSMove : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     int ret;
     rocksdb::Status s = set_db.Move(args_[1], args_[2], args_[3], &ret);
     if (!s.ok()) {
@@ -2050,7 +2051,7 @@ class CommandSDiff : public Commander {
       keys.emplace_back(args_[i]);
     }
     std::vector<std::string> members;
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     auto s = set_db.Diff(keys, &members);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2068,7 +2069,7 @@ class CommandSUnion : public Commander {
       keys.emplace_back(args_[i]);
     }
     std::vector<std::string> members;
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     auto s = set_db.Union(keys, &members);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2086,7 +2087,7 @@ class CommandSInter : public Commander {
       keys.emplace_back(args_[i]);
     }
     std::vector<std::string> members;
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     auto s = set_db.Inter(keys, &members);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2104,7 +2105,7 @@ class CommandSDiffStore: public Commander {
     for (size_t i = 2; i < args_.size(); i++) {
       keys.emplace_back(args_[i]);
     }
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     auto s = set_db.DiffStore(args_[1], keys, &ret);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2122,7 +2123,7 @@ class CommandSUnionStore: public Commander {
     for (size_t i = 2; i < args_.size(); i++) {
       keys.emplace_back(args_[i]);
     }
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     auto s = set_db.UnionStore(args_[1], keys, &ret);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2140,7 +2141,7 @@ class CommandSInterStore: public Commander {
     for (size_t i = 2; i < args_.size(); i++) {
       keys.emplace_back(args_[i]);
     }
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     auto s = set_db.InterStore(args_[1], keys, &ret);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2173,7 +2174,7 @@ class CommandZAdd : public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = zset_db.Add(args_[1], 0, &member_scores_, &ret);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2199,7 +2200,7 @@ class CommandZCount : public Commander {
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
 
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = zset_db.Count(args_[1], spec_, &ret);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2217,7 +2218,7 @@ class CommandZCard : public Commander {
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
 
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = zset_db.Card(args_[1], &ret);
     if (!s.ok() && !s.IsNotFound()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2241,7 +2242,7 @@ class CommandZIncrBy : public Commander {
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     double score;
 
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = zset_db.IncrBy(args_[1], args_[3], incr_, &score);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2266,7 +2267,7 @@ class CommandZLexCount : public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int size;
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = zset_db.RangeByLex(args_[1], spec_, nullptr, &size);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2295,7 +2296,7 @@ class CommandZPop : public Commander {
   }
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     std::vector<MemberScore> memeber_scores;
     rocksdb::Status s = zset_db.Pop(args_[1], count_, min_, &memeber_scores);
     if (!s.ok()) {
@@ -2340,7 +2341,7 @@ class CommandZRange : public Commander {
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     std::vector<MemberScore> memeber_scores;
     uint8_t flags = !reversed_ ? 0 : ZSET_REVERSED;
     rocksdb::Status s =
@@ -2402,7 +2403,7 @@ class CommandZRangeByLex : public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int size;
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     std::vector<std::string> members;
     rocksdb::Status s = zset_db.RangeByLex(args_[1], spec_, &members, &size);
     if (!s.ok()) {
@@ -2453,7 +2454,7 @@ class CommandZRangeByScore : public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int size;
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     std::vector<MemberScore> memeber_scores;
     rocksdb::Status s =
         zset_db.RangeByScore(args_[1], spec_, &memeber_scores, &size);
@@ -2484,7 +2485,7 @@ class CommandZRank : public Commander {
       : reversed_(reversed) {}
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int rank;
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = zset_db.Rank(args_[1], args_[2], reversed_, &rank);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2520,7 +2521,7 @@ class CommandZRem : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int size;
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     std::vector<rocksdb::Slice> members;
     for (unsigned i = 2; i < args_.size(); i++) {
       members.emplace_back(args_[i]);
@@ -2549,7 +2550,7 @@ class CommandZRemRangeByRank : public Commander {
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int ret;
 
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s =
         zset_db.RemoveRangeByRank(args_[1], start_, stop_, &ret);
     if (!s.ok()) {
@@ -2576,7 +2577,7 @@ class CommandZRemRangeByScore : public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int size;
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = zset_db.RemoveRangeByScore(args_[1], spec_, &size);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2601,7 +2602,7 @@ class CommandZRemRangeByLex : public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int size;
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = zset_db.RemoveRangeByLex(args_[1], spec_, &size);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2618,7 +2619,7 @@ class CommandZScore : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     double score;
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = zset_db.Score(args_[1], args_[2], &score);
     if (!s.ok() && !s.IsNotFound()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2635,7 +2636,7 @@ class CommandZScore : public Commander {
 class CommandZMScore : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     std::vector<Slice> members;
     for (unsigned int i = 2; i < args_.size(); i++) {
       members.emplace_back(Slice(args_[i]));
@@ -2715,7 +2716,7 @@ class CommandZUnionStore : public Commander {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int size;
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = zset_db.UnionStore(args_[1], keys_weights_, aggregate_method_, &size);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2736,7 +2737,7 @@ class CommandZInterStore : public CommandZUnionStore {
 
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     int size;
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = zset_db.InterStore(args_[1], keys_weights_, aggregate_method_, &size);
     if (!s.ok()) {
       return Status(Status::RedisExecErr, s.ToString());
@@ -2746,6 +2747,7 @@ class CommandZInterStore : public CommandZUnionStore {
   }
 };
 
+#if 0
 class CommandGeoBase : public Commander {
  public:
   Status ParseDistanceUnit(const std::string &param) {
@@ -4221,12 +4223,11 @@ class CommandScan : public CommandScanBase {
   }
 };
 
-#if 0
 class CommandHScan : public CommandSubkeyScanBase {
  public:
   CommandHScan() : CommandSubkeyScanBase() {}
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Hash hash_db(svr->storage_, conn->GetNamespace());
+    Redis::Hash hash_db(storage, table_id, batch, skip_write_db_);
     std::vector<std::string> fields;
     std::vector<std::string> values;
     auto s = hash_db.Scan(key, cursor, limit, prefix, &fields, &values);
@@ -4242,7 +4243,7 @@ class CommandSScan : public CommandSubkeyScanBase {
  public:
   CommandSScan() : CommandSubkeyScanBase() {}
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::Set set_db(svr->storage_, conn->GetNamespace());
+    Redis::Set set_db(storage, table_id, batch, skip_write_db_);
     std::vector<std::string> members;
     auto s = set_db.Scan(key, cursor, limit, prefix, &members);
     if (!s.ok() && !s.IsNotFound()) {
@@ -4258,7 +4259,7 @@ class CommandZScan : public CommandSubkeyScanBase {
  public:
   CommandZScan() : CommandSubkeyScanBase() {}
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
-    Redis::ZSet zset_db(svr->storage_, conn->GetNamespace());
+    Redis::ZSet zset_db(storage, table_id, batch, skip_write_db_);
     std::vector<std::string> members;
     std::vector<double> scores;
     auto s = zset_db.Scan(key, cursor, limit, prefix, &members, &scores);
@@ -4274,6 +4275,7 @@ class CommandZScan : public CommandSubkeyScanBase {
   }
 };
 
+#if 0
 class CommandRandomKey : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
@@ -4803,80 +4805,80 @@ CommandAttributes redisCommandTable[] = {
 //    ADD_CMD("bitpos", -3, "read-only", 1, 1, 1, CommandBitPos),
 //    ADD_CMD("bitop", -4, "write", 2, -1, 1, CommandBitOp),
 
-//    ADD_CMD("hget", 3, "read-only", 1, 1, 1, CommandHGet),
-//    ADD_CMD("hincrby", 4, "write", 1, 1, 1, CommandHIncrBy),
-//    ADD_CMD("hincrbyfloat", 4, "write", 1, 1, 1, CommandHIncrByFloat),
-//    ADD_CMD("hset", -4, "write", 1, 1, 1, CommandHMSet),
-//    ADD_CMD("hsetnx", 4, "write", 1, 1, 1, CommandHSetNX),
-//    ADD_CMD("hdel", -3, "write", 1, 1, 1, CommandHDel),
-//    ADD_CMD("hstrlen", 3, "read-only", 1, 1, 1, CommandHStrlen),
-//    ADD_CMD("hexists", 3, "read-only", 1, 1, 1, CommandHExists),
-//    ADD_CMD("hlen", 2, "read-only", 1, 1, 1, CommandHLen),
-//    ADD_CMD("hmget", -3, "read-only", 1, 1, 1, CommandHMGet),
-//    ADD_CMD("hmset", -4, "write", 1, 1, 1, CommandHMSet),
-//    ADD_CMD("hkeys", 2, "read-only", 1, 1, 1, CommandHKeys),
-//    ADD_CMD("hvals", 2, "read-only", 1, 1, 1, CommandHVals),
-//    ADD_CMD("hgetall", 2, "read-only", 1, 1, 1, CommandHGetAll),
-//    ADD_CMD("hscan", -3, "read-only", 1, 1, 1, CommandHScan),
-//
-//    ADD_CMD("lpush", -3, "write", 1, 1, 1, CommandLPush),
-//    ADD_CMD("rpush", -3, "write", 1, 1, 1, CommandRPush),
-//    ADD_CMD("lpushx", -3, "write", 1, 1, 1, CommandLPushX),
-//    ADD_CMD("rpushx", -3, "write", 1, 1, 1, CommandRPushX),
-//    ADD_CMD("lpop", -2, "write", 1, 1, 1, CommandLPop),
-//    ADD_CMD("rpop", -2, "write", 1, 1, 1, CommandRPop),
+    ADD_CMD("hget", 3, "read-only", 1, 1, 1, CommandHGet),
+    ADD_CMD("hincrby", 4, "write", 1, 1, 1, CommandHIncrBy),
+    ADD_CMD("hincrbyfloat", 4, "write", 1, 1, 1, CommandHIncrByFloat),
+    ADD_CMD("hset", -4, "write", 1, 1, 1, CommandHMSet),
+    ADD_CMD("hsetnx", 4, "write", 1, 1, 1, CommandHSetNX),
+    ADD_CMD("hdel", -3, "write", 1, 1, 1, CommandHDel),
+    ADD_CMD("hstrlen", 3, "read-only", 1, 1, 1, CommandHStrlen),
+    ADD_CMD("hexists", 3, "read-only", 1, 1, 1, CommandHExists),
+    ADD_CMD("hlen", 2, "read-only", 1, 1, 1, CommandHLen),
+    ADD_CMD("hmget", -3, "read-only", 1, 1, 1, CommandHMGet),
+    ADD_CMD("hmset", -4, "write", 1, 1, 1, CommandHMSet),
+    ADD_CMD("hkeys", 2, "read-only", 1, 1, 1, CommandHKeys),
+    ADD_CMD("hvals", 2, "read-only", 1, 1, 1, CommandHVals),
+    ADD_CMD("hgetall", 2, "read-only", 1, 1, 1, CommandHGetAll),
+    ADD_CMD("hscan", -3, "read-only", 1, 1, 1, CommandHScan),
+
+    ADD_CMD("lpush", -3, "write", 1, 1, 1, CommandLPush),
+    ADD_CMD("rpush", -3, "write", 1, 1, 1, CommandRPush),
+    ADD_CMD("lpushx", -3, "write", 1, 1, 1, CommandLPushX),
+    ADD_CMD("rpushx", -3, "write", 1, 1, 1, CommandRPushX),
+    ADD_CMD("lpop", -2, "write", 1, 1, 1, CommandLPop),
+    ADD_CMD("rpop", -2, "write", 1, 1, 1, CommandRPop),
 //    ADD_CMD("blpop", -3, "write no-script", 1, -2, 1, CommandBLPop),
 //    ADD_CMD("brpop", -3, "write no-script", 1, -2, 1, CommandBRPop),
-//    ADD_CMD("lrem", 4, "write", 1, 1, 1, CommandLRem),
-//    ADD_CMD("linsert", 5, "write", 1, 1, 1, CommandLInsert),
-//    ADD_CMD("lrange", 4, "read-only", 1, 1, 1, CommandLRange),
-//    ADD_CMD("lindex", 3, "read-only", 1, 1, 1, CommandLIndex),
-//    ADD_CMD("ltrim", 4, "write", 1, 1, 1, CommandLTrim),
-//    ADD_CMD("llen", 2, "read-only", 1, 1, 1, CommandLLen),
-//    ADD_CMD("lset", 4, "write", 1, 1, 1, CommandLSet),
-//    ADD_CMD("rpoplpush", 3, "write", 1, 2, 1, CommandRPopLPUSH),
-//    ADD_CMD("lmove", 5, "write", 1, 2, 1, CommandLMove),
-//
-//    ADD_CMD("sadd", -3, "write", 1, 1, 1, CommandSAdd),
-//    ADD_CMD("srem", -3, "write", 1, 1, 1, CommandSRem),
-//    ADD_CMD("scard", 2, "read-only", 1, 1, 1, CommandSCard),
-//    ADD_CMD("smembers", 2, "read-only", 1, 1, 1, CommandSMembers),
-//    ADD_CMD("sismember", 3, "read-only", 1, 1, 1, CommandSIsMember),
-//    ADD_CMD("spop", -2, "write", 1, 1, 1, CommandSPop),
-//    ADD_CMD("srandmember", -2, "read-only", 1, 1, 1, CommandSRandMember),
-//    ADD_CMD("smove", 4, "write", 1, 2, 1, CommandSMove),
-//    ADD_CMD("sdiff", -2, "read-only", 1, -1, 1, CommandSDiff),
-//    ADD_CMD("sunion", -2, "read-only", 1, -1, 1, CommandSUnion),
-//    ADD_CMD("sinter", -2, "read-only", 1, -1, 1, CommandSInter),
-//    ADD_CMD("sdiffstore", -3, "write", 1, -1, 1, CommandSDiffStore),
-//    ADD_CMD("sunionstore", -3, "write", 1, -1, 1, CommandSUnionStore),
-//    ADD_CMD("sinterstore", -3, "write", 1, -1, 1, CommandSInterStore),
-//    ADD_CMD("sscan", -3, "read-only", 1, 1, 1, CommandSScan),
+    ADD_CMD("lrem", 4, "write", 1, 1, 1, CommandLRem),
+    ADD_CMD("linsert", 5, "write", 1, 1, 1, CommandLInsert),
+    ADD_CMD("lrange", 4, "read-only", 1, 1, 1, CommandLRange),
+    ADD_CMD("lindex", 3, "read-only", 1, 1, 1, CommandLIndex),
+    ADD_CMD("ltrim", 4, "write", 1, 1, 1, CommandLTrim),
+    ADD_CMD("llen", 2, "read-only", 1, 1, 1, CommandLLen),
+    ADD_CMD("lset", 4, "write", 1, 1, 1, CommandLSet),
+    ADD_CMD("rpoplpush", 3, "write", 1, 2, 1, CommandRPopLPUSH),
+    ADD_CMD("lmove", 5, "write", 1, 2, 1, CommandLMove),
 
-//    ADD_CMD("zadd", -4, "write", 1, 1, 1, CommandZAdd),
-//    ADD_CMD("zcard", 2, "read-only", 1, 1, 1, CommandZCard),
-//    ADD_CMD("zcount", 4, "read-only", 1, 1, 1, CommandZCount),
-//    ADD_CMD("zincrby", 4, "write", 1, 1, 1, CommandZIncrBy),
-//    ADD_CMD("zinterstore", -4, "write", 1, 1, 1, CommandZInterStore),
-//    ADD_CMD("zlexcount", 4, "read-only", 1, 1, 1, CommandZLexCount),
-//    ADD_CMD("zpopmax", -2, "write", 1, 1, 1, CommandZPopMax),
-//    ADD_CMD("zpopmin", -2, "write", 1, 1, 1, CommandZPopMin),
-//    ADD_CMD("zrange", -4, "read-only", 1, 1, 1, CommandZRange),
-//    ADD_CMD("zrevrange", -4, "read-only", 1, 1, 1, CommandZRevRange),
-//    ADD_CMD("zrangebylex", -4, "read-only", 1, 1, 1, CommandZRangeByLex),
-//    ADD_CMD("zrevrangebylex", -4, "read-only", 1, 1, 1, CommandZRevRangeByLex),
-//    ADD_CMD("zrangebyscore", -4, "read-only", 1, 1, 1, CommandZRangeByScore),
-//    ADD_CMD("zrank", 3, "read-only", 1, 1, 1, CommandZRank),
-//    ADD_CMD("zrem", -3, "write", 1, 1, 1, CommandZRem),
-//    ADD_CMD("zremrangebyrank", 4, "write", 1, 1, 1, CommandZRemRangeByRank),
-//    ADD_CMD("zremrangebyscore", -4, "write", 1, 1, 1, CommandZRemRangeByScore),
-//    ADD_CMD("zremrangebylex", 4, "write", 1, 1, 1, CommandZRemRangeByLex),
-//    ADD_CMD("zrevrangebyscore", -4, "read-only", 1, 1, 1, CommandZRevRangeByScore),
-//    ADD_CMD("zrevrank", 3, "read-only", 1, 1, 1, CommandZRevRank),
-//    ADD_CMD("zscore", 3, "read-only", 1, 1, 1, CommandZScore),
-//    ADD_CMD("zmscore", -3, "read-only", 1, 1, 1, CommandZMScore),
-//    ADD_CMD("zscan", -3, "read-only", 1, 1, 1, CommandZScan),
-//    ADD_CMD("zunionstore", -4, "write", 1, 1, 1, CommandZUnionStore),
+    ADD_CMD("sadd", -3, "write", 1, 1, 1, CommandSAdd),
+    ADD_CMD("srem", -3, "write", 1, 1, 1, CommandSRem),
+    ADD_CMD("scard", 2, "read-only", 1, 1, 1, CommandSCard),
+    ADD_CMD("smembers", 2, "read-only", 1, 1, 1, CommandSMembers),
+    ADD_CMD("sismember", 3, "read-only", 1, 1, 1, CommandSIsMember),
+    ADD_CMD("spop", -2, "write", 1, 1, 1, CommandSPop),
+    ADD_CMD("srandmember", -2, "read-only", 1, 1, 1, CommandSRandMember),
+    ADD_CMD("smove", 4, "write", 1, 2, 1, CommandSMove),
+    ADD_CMD("sdiff", -2, "read-only", 1, -1, 1, CommandSDiff),
+    ADD_CMD("sunion", -2, "read-only", 1, -1, 1, CommandSUnion),
+    ADD_CMD("sinter", -2, "read-only", 1, -1, 1, CommandSInter),
+    ADD_CMD("sdiffstore", -3, "write", 1, -1, 1, CommandSDiffStore),
+    ADD_CMD("sunionstore", -3, "write", 1, -1, 1, CommandSUnionStore),
+    ADD_CMD("sinterstore", -3, "write", 1, -1, 1, CommandSInterStore),
+    ADD_CMD("sscan", -3, "read-only", 1, 1, 1, CommandSScan),
+
+    ADD_CMD("zadd", -4, "write", 1, 1, 1, CommandZAdd),
+    ADD_CMD("zcard", 2, "read-only", 1, 1, 1, CommandZCard),
+    ADD_CMD("zcount", 4, "read-only", 1, 1, 1, CommandZCount),
+    ADD_CMD("zincrby", 4, "write", 1, 1, 1, CommandZIncrBy),
+    ADD_CMD("zinterstore", -4, "write", 1, 1, 1, CommandZInterStore),
+    ADD_CMD("zlexcount", 4, "read-only", 1, 1, 1, CommandZLexCount),
+    ADD_CMD("zpopmax", -2, "write", 1, 1, 1, CommandZPopMax),
+    ADD_CMD("zpopmin", -2, "write", 1, 1, 1, CommandZPopMin),
+    ADD_CMD("zrange", -4, "read-only", 1, 1, 1, CommandZRange),
+    ADD_CMD("zrevrange", -4, "read-only", 1, 1, 1, CommandZRevRange),
+    ADD_CMD("zrangebylex", -4, "read-only", 1, 1, 1, CommandZRangeByLex),
+    ADD_CMD("zrevrangebylex", -4, "read-only", 1, 1, 1, CommandZRevRangeByLex),
+    ADD_CMD("zrangebyscore", -4, "read-only", 1, 1, 1, CommandZRangeByScore),
+    ADD_CMD("zrank", 3, "read-only", 1, 1, 1, CommandZRank),
+    ADD_CMD("zrem", -3, "write", 1, 1, 1, CommandZRem),
+    ADD_CMD("zremrangebyrank", 4, "write", 1, 1, 1, CommandZRemRangeByRank),
+    ADD_CMD("zremrangebyscore", -4, "write", 1, 1, 1, CommandZRemRangeByScore),
+    ADD_CMD("zremrangebylex", 4, "write", 1, 1, 1, CommandZRemRangeByLex),
+    ADD_CMD("zrevrangebyscore", -4, "read-only", 1, 1, 1, CommandZRevRangeByScore),
+    ADD_CMD("zrevrank", 3, "read-only", 1, 1, 1, CommandZRevRank),
+    ADD_CMD("zscore", 3, "read-only", 1, 1, 1, CommandZScore),
+    ADD_CMD("zmscore", -3, "read-only", 1, 1, 1, CommandZMScore),
+    ADD_CMD("zscan", -3, "read-only", 1, 1, 1, CommandZScan),
+    ADD_CMD("zunionstore", -4, "write", 1, 1, 1, CommandZUnionStore),
 
 //    ADD_CMD("geoadd", -5, "write", 1, 1, 1, CommandGeoAdd),
 //    ADD_CMD("geodist", -4, "read-only", 1, 1, 1, CommandGeoDist),

@@ -82,7 +82,7 @@ set(TESTS_SRCS
 #        tests/cppunit/t_metadata_test.cc
         tests/cppunit/t_set_test.cc
         tests/cppunit/t_string_test.cc
-#        tests/cppunit/t_zset_test.cc
+        tests/cppunit/t_zset_test.cc
         tests/cppunit/encoding_test.cc
         tests/cppunit/request_test.cc
         tests/cppunit/redis_processor_test.cc
