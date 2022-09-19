@@ -9,7 +9,6 @@ Storage::Storage(rocksdb::DB* db):
 }
 
 Storage::~Storage() {
-  db_->Close();
   delete lock_mgr_;
 }
 

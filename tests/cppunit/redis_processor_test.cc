@@ -47,10 +47,12 @@ TEST_F(RedisProcessorTest, C) {
   const char* req_str = "*3\r\n$3\r\nset\r\n$1\r\na\r\n$4\r\n1234\r\n";
   size_t req_len = strlen(req_str);
 
-  auto res = redis_processor_handle(reinterpret_cast<rocksdb_t*>(storage_->GetDB()), table_id, req_str, req_len);
+  auto p = new_redis_processor(storage_->GetDB());
+  auto res = redis_processor_handle(p, table_id, req_str, req_len);
   assert(res.err_msg == NULL);
   assert(res.err_len == 0);
   assert(strcmp(res.resp_cstr, "+OK\r\n") == 0);
   assert(strlen(res.resp_cstr) == strlen("+OK\r\n"));
   free_redis_processor_handle_result(&res);
+  free_redis_processor(p);
 }

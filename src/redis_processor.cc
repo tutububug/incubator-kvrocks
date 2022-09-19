@@ -2,13 +2,16 @@
 
 namespace Redis {
 
-std::once_flag flag;
-
-std::unique_ptr<Processor>& Processor::New(rocksdb::DB* db) {
-  std::call_once(flag, [&]() {
-    p_.reset(new Processor(new Storage(db)));
+std::once_flag once_flag;
+Processor::Processor(Storage* s): storage_(s) {
+  std::call_once(once_flag, []() {
+    InitCommandsTable();
+    PopulateCommands();
   });
-  return p_;
+}
+
+Processor::~Processor() {
+  delete storage_;
 }
 
 Status Processor::Do(std::string& resp_str, rocksdb::WriteBatch* batch, int64_t table_id, const std::string& req_str) {

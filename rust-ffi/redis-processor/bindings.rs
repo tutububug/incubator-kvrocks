@@ -5240,6 +5240,18 @@ extern "C" {
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+pub struct redis_processor {
+    _unused: [u8; 0],
+}
+pub type redis_processor_t = redis_processor;
+extern "C" {
+    pub fn new_redis_processor(db: *mut ::std::os::raw::c_void) -> *mut redis_processor_t;
+}
+extern "C" {
+    pub fn free_redis_processor(p: *mut redis_processor_t);
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
 pub struct redis_processor_handle_result {
     pub err_msg: *mut ::std::os::raw::c_char,
     pub err_len: size_t,
@@ -5323,7 +5335,7 @@ fn bindgen_test_layout_redis_processor_handle_result() {
 pub type redis_processor_handle_result_t = redis_processor_handle_result;
 extern "C" {
     pub fn redis_processor_handle(
-        db: *mut rocksdb_t,
+        p: *mut redis_processor_t,
         table_id: i64,
         req_cstr: *const ::std::os::raw::c_char,
         req_len: size_t,

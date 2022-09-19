@@ -6,6 +6,12 @@
 extern "C" {
 #endif
 
+typedef struct redis_processor redis_processor_t;
+
+redis_processor_t* new_redis_processor(void* db);
+
+void free_redis_processor(redis_processor_t* p);
+
 typedef struct redis_processor_handle_result {
   char* err_msg;
   size_t err_len;
@@ -15,7 +21,7 @@ typedef struct redis_processor_handle_result {
 } redis_processor_handle_result_t;
 
 redis_processor_handle_result_t
-redis_processor_handle(rocksdb_t* db, int64_t table_id, const char* req_cstr, size_t req_len);
+redis_processor_handle(redis_processor_t* p, int64_t table_id, const char* req_cstr, size_t req_len);
 
 void
 free_redis_processor_handle_result(redis_processor_handle_result_t* res);

@@ -2,18 +2,34 @@
 #include "redis_processor.h"
 #include "status.h"
 
+struct redis_processor {
+  Redis::Processor* p;
+};
+
+redis_processor_t* new_redis_processor(void* db) {
+  auto p = new redis_processor();
+  p->p = new Redis::Processor(new Redis::Storage(reinterpret_cast<rocksdb::DB*>(db)));
+  return p;
+}
+
+void free_redis_processor(redis_processor* p) {
+  if (p != nullptr) {
+    delete(p->p);
+    delete p;
+  }
+}
+
 void copy_string_to_char_array(char** out, size_t* out_len, const std::string& in);
 
 redis_processor_handle_result_t
-redis_processor_handle(rocksdb_t* db, int64_t table_id, const char* req_cstr, size_t req_len) {
+redis_processor_handle(redis_processor_t* p, int64_t table_id, const char* req_cstr, size_t req_len) {
   redis_processor_handle_result_t ret;
   memset(&ret, 0, sizeof(redis_processor_handle_result_t));
 
   std::string req_str(req_cstr, req_len);
   std::string resp_str;
   auto batch = new rocksdb::WriteBatch();
-  auto& p = Redis::Processor::New(reinterpret_cast<rocksdb::DB*>(db));
-  auto s = p->Do(resp_str, batch, table_id, req_str);
+  auto s = p->p->Do(resp_str, batch, table_id, req_str);
   if (!s.IsOK()) {
     copy_string_to_char_array(&ret.err_msg, &ret.err_len, s.Msg());
     return ret;

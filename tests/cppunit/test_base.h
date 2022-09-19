@@ -32,8 +32,10 @@ protected:
     options.OptimizeLevelStyleCompaction();
     options.create_if_missing = true;
 
+    db_path_ = "/tmp/testsdb-" + std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
     rocksdb::DB* db;
-    rocksdb::DB::Open(options, "/tmp/testsdb", &db);
+    auto ss = rocksdb::DB::Open(options, db_path_, &db);
+    assert(ss.ok());
 
     storage_ = new Redis::Storage(db);
     Status s = storage_->Open();
@@ -43,7 +45,7 @@ protected:
     }
   }
   ~TestBase() override {
-    rmdir("testsdb");
+    system(("rm -rf " + db_path_).c_str());
     delete storage_;
     delete config_;
   }
@@ -55,5 +57,6 @@ protected:
   std::vector<Slice> fields_;
   std::vector<Slice> values_;
   rocksdb::WriteBatch batch_;
+  std::string db_path_;
 };
 #endif //KVROCKS_TEST_BASE_H

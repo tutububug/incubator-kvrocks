@@ -9,21 +9,13 @@
 namespace Redis {
 
 class Processor {
-private:
-  explicit Processor(Storage* s): storage_(s) {
-    InitCommandsTable();
-    PopulateCommands();
-  }
+public:
+  explicit Processor(Storage* s);
+  ~Processor();
 
   Processor() = delete;
   Processor(const Processor& p) = delete;
   Processor& operator=(const Processor& p) = delete;
-
-public:
-  static std::unique_ptr<Processor>& New(rocksdb::DB* db);
-
-private:
-  static std::unique_ptr<Processor> p_;
 
 public:
   Status Do(std::string& resp_str, rocksdb::WriteBatch* batch, int64_t table_id, const std::string& req_str);
