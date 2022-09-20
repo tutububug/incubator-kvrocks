@@ -14,7 +14,7 @@ redis_processor_t* new_redis_processor(void* db) {
 
 void free_redis_processor(redis_processor* p) {
   if (p != nullptr) {
-    delete(p->p);
+    delete p->p;
     delete p;
   }
 }
@@ -42,10 +42,7 @@ redis_processor_handle(redis_processor_t* p, int64_t table_id, const char* req_c
 void free_redis_processor_handle_result(redis_processor_handle_result_t* res) {
   if (res->err_msg) free(res->err_msg);
   if (res->resp_cstr) free(res->resp_cstr);
-  if (res->batch) {
-    rocksdb_writebatch_clear(res->batch);
-    free(res->batch);
-  }
+  if (res->batch) rocksdb_writebatch_destroy(res->batch);
 }
 
 void copy_string_to_char_array(char** out, size_t* out_len, const std::string& in) {
