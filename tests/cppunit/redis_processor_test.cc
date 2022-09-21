@@ -40,6 +40,12 @@ TEST_F(RedisProcessorTest, String_Base) {
     assert(s.IsOK());
     assert(resp_str == ":1\r\n");
   }
+  { // less command args arity
+    std::string req_str = "*1\r\n$3\r\nget\r\n";
+    std::string resp_str;
+    auto s = p.Do(resp_str, &batch, table_id, req_str);
+    assert(!s.IsOK());
+  }
 }
 
 TEST_F(RedisProcessorTest, C) {

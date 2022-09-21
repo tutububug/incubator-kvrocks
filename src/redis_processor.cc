@@ -10,10 +10,6 @@ Processor::Processor(Storage* s): storage_(s) {
   });
 }
 
-Processor::~Processor() {
-  delete storage_;
-}
-
 Status Processor::Do(std::string& resp_str, rocksdb::WriteBatch* batch, int64_t table_id, const std::string& req_str) {
   Request req;
   auto s = req.Tokenize(req_str);
@@ -22,6 +18,7 @@ Status Processor::Do(std::string& resp_str, rocksdb::WriteBatch* batch, int64_t 
     ss << "tokenize the request failed, err=" << s.Msg();
     return Status(Status::NotOK, ss.str());
   }
+
   s = executeCommands(resp_str, batch, table_id, req.GetCommands());
   if (!s.IsOK()) {
     std::ostringstream ss;
@@ -44,9 +41,12 @@ Status Processor::executeCommands(std::string& resp_str, rocksdb::WriteBatch* ba
       ss << "lookup command failed: err=" << s.Msg();
       return Status(Status::RedisUnknownCmd, ss.str());
     }
-    const auto attributes = current_cmd->GetAttributes();
-    auto cmd_name = attributes->name;
-
+    s = checkCommandArgs(cmd_tokens, current_cmd->GetAttributes());
+    if (!s.IsOK()) {
+      std::ostringstream ss;
+      ss << "check command args failed: err=" << s.Msg();
+      return Status(Status::RedisInvalidCmd, ss.str());
+    }
     current_cmd->SetArgs(cmd_tokens);
     s = current_cmd->Parse(cmd_tokens);
     if (!s.IsOK()) {
@@ -75,6 +75,16 @@ Status Processor::lookupAndCreateCommand(const std::string &cmd_name, std::uniqu
   auto redisCmd = cmd_iter->second;
   *cmd = redisCmd->factory();
   (*cmd)->SetAttributes(redisCmd);
+  return Status::OK();
+}
+
+Status Processor::checkCommandArgs(const Redis::CommandTokens& cmd_tokens, const CommandAttributes* attributes) {
+  int arity = attributes->arity;
+  int tokens = static_cast<int>(cmd_tokens.size());
+  if ((arity > 0 && tokens != arity)
+  || (arity < 0 && tokens < -arity)) {
+    return Status(Status::RedisInvalidCmd, "ERR wrong number of arguments");
+  }
   return Status::OK();
 }
 

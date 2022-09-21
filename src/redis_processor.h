@@ -11,7 +11,6 @@ namespace Redis {
 class Processor {
 public:
   explicit Processor(Storage* s);
-  ~Processor();
 
   Processor() = delete;
   Processor(const Processor& p) = delete;
@@ -23,6 +22,7 @@ public:
 private:
   Status lookupAndCreateCommand(const std::string &cmd_name, std::unique_ptr<Redis::Commander> *cmd);
   Status executeCommands(std::string& resp_str, rocksdb::WriteBatch* batch, int64_t table_id, const std::vector<Redis::CommandTokens> &to_process_cmds);
+  Status checkCommandArgs(const Redis::CommandTokens& cmd_tokens, const CommandAttributes* attributes);
 
 private:
   Storage* storage_;
