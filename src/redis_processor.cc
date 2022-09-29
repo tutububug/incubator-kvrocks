@@ -1,3 +1,4 @@
+#include <sstream>
 #include "redis_processor.h"
 
 namespace Redis {

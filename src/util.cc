@@ -33,7 +33,6 @@
 #include <math.h>
 #include <string>
 #include <algorithm>
-#include <glog/logging.h>
 #ifdef __linux__
 #include <sys/sendfile.h>
 #endif

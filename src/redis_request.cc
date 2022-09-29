@@ -21,8 +21,7 @@
 #include <chrono>
 #include <utility>
 #include <memory>
-#include <glog/logging.h>
-
+#include <sstream>
 #include "util.h"
 #include "redis_request.h"
 #include "redis_slot.h"

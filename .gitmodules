@@ -1,0 +1,4 @@
+[submodule "librockdis_sys/rocksdb"]
+	path = librockdis_sys/rocksdb
+	url = https://github.com/tikv/rocksdb.git
+	branch = tikv-5.2

@@ -1,7 +1,7 @@
 #ifndef REDIS_PROCESSOR_C_H
 #define REDIS_PROCESSOR_C_H
 
-#include "c.h" // rocksdb/c.h
+#include "rocksdb/c.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

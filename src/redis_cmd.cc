@@ -28,7 +28,6 @@
 #include <thread>
 #include <utility>
 #include <memory>
-#include <glog/logging.h>
 
 #include "redis_db.h"
 #include "redis_cmd.h"
@@ -172,7 +171,7 @@ class CommandFlushDB : public Commander {
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
     Redis::Database redis(storage, table_id, batch, skip_write_db_);
     rocksdb::Status s = redis.FlushDB();
-    LOG(WARNING) << "DB keys in table: " << table_id;
+//    LOG(WARNING) << "DB keys in table: " << table_id;
     if (s.ok()) {
       *output = Redis::SimpleString("OK");
       return Status::OK();

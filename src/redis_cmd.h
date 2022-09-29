@@ -28,7 +28,6 @@
 #include <utility>
 #include <memory>
 
-#include <glog/logging.h>
 #include <rocksdb/types.h>
 #include <rocksdb/utilities/backupable_db.h>
 
