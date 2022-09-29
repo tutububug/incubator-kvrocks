@@ -49,3 +49,8 @@ build
 cmake-build-*
 rust-ffi/redis-processor/target/
 librockdis_sys/target
+
+
+# Added by cargo
+
+/target
