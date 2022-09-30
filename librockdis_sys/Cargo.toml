@@ -5,6 +5,12 @@ edition = "2018"
 build = "build.rs"
 links = "rockdis"
 
+[dependencies.rocksdb]
+git = "https://github.com/tikv/rust-rocksdb.git"
+package = "rocksdb"
+features = ["encryption", "static_libcpp"]
+branch = "tikv-5.2"
+
 [build-dependencies]
 cc = "1.0.3"
 cmake = "0.1"

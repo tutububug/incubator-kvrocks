@@ -43,6 +43,7 @@ fn build_rockdis(include_dirs: Vec<&PathBuf>) -> Build {
             "../src/redis_cmd.cc",
             "../src/redis_reply.cc",
         ]);
+    println!("cargo:rustc-link-lib=static=rockdis");
     build
 }
 
