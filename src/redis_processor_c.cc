@@ -2,13 +2,14 @@
 #include "redis_processor.h"
 #include "status.h"
 
-struct redis_processor {
-  Redis::Processor* p;
-};
+struct redis_processor { Redis::Processor* p; };
+struct rocksdb_t { rocksdb::DB* rep; };
 
+// new_redis_processor
+// the input pointer type of 'void* db' is required as 'rocksdb_t*' which defined in 'rocksdb/c.h'
 redis_processor_t* new_redis_processor(void* db) {
   auto p = new redis_processor();
-  p->p = new Redis::Processor(new Redis::Storage(reinterpret_cast<rocksdb::DB*>(db)));
+  p->p = new Redis::Processor(new Redis::Storage(reinterpret_cast<struct rocksdb_t*>(db)->rep));
   return p;
 }
 
