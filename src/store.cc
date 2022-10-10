@@ -38,12 +38,12 @@ bool Storage::IsSlotIdEncoded() {
   return false;
 }
 
-rocksdb::Status Storage::Write(const rocksdb::WriteOptions& options, rocksdb::WriteBatch* updates, bool skip_write_db) {
-  if (skip_write_db) {
-    return rocksdb::Status::OK();
-  } else {
-    return db_->Write(options, updates);
-  }
+rocksdb::Status Storage::Write(const rocksdb::WriteOptions& options, rocksdb::WriteBatch* updates) {
+#ifdef REDIS_STORAGE_DO_WRITE
+  return db_->Write(options, updates);
+#else
+  return rocksdb::Status::OK();
+#endif
 }
 
 }

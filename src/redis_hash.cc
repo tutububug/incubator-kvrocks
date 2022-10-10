@@ -101,7 +101,7 @@ rocksdb::Status Hash::IncrBy(const Slice &user_key, const Slice &field, int64_t 
     metadata.Encode(&bytes);
     batch_->Put(ns_key, bytes);
   }
-  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  return storage_->Write(rocksdb::WriteOptions(), batch_);
 }
 
 rocksdb::Status Hash::IncrByFloat(const Slice &user_key, const Slice &field, double increment, double *ret) {
@@ -148,7 +148,7 @@ rocksdb::Status Hash::IncrByFloat(const Slice &user_key, const Slice &field, dou
     metadata.Encode(&bytes);
     batch_->Put(ns_key, bytes);
   }
-  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  return storage_->Write(rocksdb::WriteOptions(), batch_);
 }
 
 rocksdb::Status Hash::MGet(const Slice &user_key,
@@ -221,7 +221,7 @@ rocksdb::Status Hash::Delete(const Slice &user_key, const std::vector<Slice> &fi
   std::string bytes;
   metadata.Encode(&bytes);
   batch_->Put(ns_key, bytes);
-  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  return storage_->Write(rocksdb::WriteOptions(), batch_);
 }
 
 rocksdb::Status Hash::MSet(const Slice &user_key, const std::vector<FieldValue> &field_values, bool nx, int *ret) {
@@ -259,7 +259,7 @@ rocksdb::Status Hash::MSet(const Slice &user_key, const std::vector<FieldValue> 
     metadata.Encode(&bytes);
     batch_->Put(ns_key, bytes);
   }
-  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  return storage_->Write(rocksdb::WriteOptions(), batch_);
 }
 
 rocksdb::Status Hash::GetAll(const Slice &user_key, std::vector<FieldValue> *field_values, HashFetchType type) {

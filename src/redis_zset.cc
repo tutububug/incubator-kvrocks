@@ -110,7 +110,7 @@ rocksdb::Status ZSet::Add(const Slice &user_key, uint8_t flags, std::vector<Memb
     metadata.Encode(&bytes);
     batch_->Put(ns_key, bytes);
   }
-  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  return storage_->Write(rocksdb::WriteOptions(), batch_);
 }
 
 rocksdb::Status ZSet::Card(const Slice &user_key, int *ret) {
@@ -197,7 +197,7 @@ rocksdb::Status ZSet::Pop(const Slice &user_key, int count, bool min, std::vecto
     metadata.Encode(&bytes);
     batch_->Put(ns_key, bytes);
   }
-  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  return storage_->Write(rocksdb::WriteOptions(), batch_);
 }
 
 rocksdb::Status ZSet::Range(const Slice &user_key, int start, int stop, uint8_t flags, std::vector<MemberScore>
@@ -272,7 +272,7 @@ rocksdb::Status ZSet::Range(const Slice &user_key, int start, int stop, uint8_t 
     std::string bytes;
     metadata.Encode(&bytes);
     batch_->Put(ns_key, bytes);
-    return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+    return storage_->Write(rocksdb::WriteOptions(), batch_);
   }
   return rocksdb::Status::OK();
 }
@@ -389,7 +389,7 @@ rocksdb::Status ZSet::RangeByScore(const Slice &user_key,
     std::string bytes;
     metadata.Encode(&bytes);
     batch_->Put(ns_key, bytes);
-    return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+    return storage_->Write(rocksdb::WriteOptions(), batch_);
   }
   return rocksdb::Status::OK();
 }
@@ -480,7 +480,7 @@ rocksdb::Status ZSet::RangeByLex(const Slice &user_key,
     std::string bytes;
     metadata.Encode(&bytes);
     batch_->Put(ns_key, bytes);
-    return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+    return storage_->Write(rocksdb::WriteOptions(), batch_);
   }
   return rocksdb::Status::OK();
 }
@@ -535,7 +535,7 @@ rocksdb::Status ZSet::Remove(const Slice &user_key, const std::vector<Slice> &me
     metadata.Encode(&bytes);
     batch_->Put(ns_key, bytes);
   }
-  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  return storage_->Write(rocksdb::WriteOptions(), batch_);
 }
 
 rocksdb::Status ZSet::RemoveRangeByScore(const Slice &user_key, ZRangeSpec spec, int *ret) {
@@ -628,7 +628,7 @@ rocksdb::Status ZSet::Overwrite(const Slice &user_key, const std::vector<MemberS
   std::string bytes;
   metadata.Encode(&bytes);
   batch_->Put(ns_key, bytes);
-  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  return storage_->Write(rocksdb::WriteOptions(), batch_);
 }
 
 rocksdb::Status ZSet::InterStore(const Slice &dst,

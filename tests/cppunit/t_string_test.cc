@@ -26,7 +26,7 @@
 class RedisStringTest : public TestBase {
 protected:
   explicit RedisStringTest() : TestBase() {
-    string = Util::MakeUnique<Redis::String>(storage_, 1, &batch_, false);
+    string = Util::MakeUnique<Redis::String>(storage_, 1, &batch_);
   }
   ~RedisStringTest() = default;
   void SetUp() override {

@@ -32,8 +32,8 @@ const char *kDefaultNamespace = "__namespace";
 
 namespace Redis {
 
-Database::Database(Redis::Storage* storage, int64_t table_id, rocksdb::WriteBatch* batch, bool skip_write_db):
-    storage_(storage), table_id_(table_id), batch_(batch), skip_write_db_(skip_write_db) {
+Database::Database(Redis::Storage* storage, int64_t table_id, rocksdb::WriteBatch* batch):
+    storage_(storage), table_id_(table_id), batch_(batch) {
   db_ = storage->GetDB();
 }
 
@@ -96,7 +96,7 @@ rocksdb::Status Database::Expire(const Slice &user_key, int timestamp) {
   // +1 to skip the flags
   EncodeFixed32(buf + 1, (uint32_t) timestamp);
   batch_->Put(ns_key, Slice(buf, value.size()));
-  s = storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  s = storage_->Write(rocksdb::WriteOptions(), batch_);
   delete[]buf;
   return s;
 }
@@ -115,7 +115,7 @@ rocksdb::Status Database::Del(const Slice &user_key) {
     return rocksdb::Status::NotFound(kErrMsgKeyExpired);
   }
   batch_->Delete(ns_key);
-  return storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  return storage_->Write(rocksdb::WriteOptions(), batch_);
 }
 
 rocksdb::Status Database::Exists(const std::vector<Slice> &keys, int *ret) {
@@ -354,7 +354,7 @@ rocksdb::Status Database::FlushDB() {
     return rocksdb::Status::OK();
   }
   batch_->DeleteRange(begin_key, end_key);
-  s = storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  s = storage_->Write(rocksdb::WriteOptions(), batch_);
   if (!s.ok()) {
     return s;
   }
@@ -379,7 +379,7 @@ rocksdb::Status Database::FlushAll() {
   }
   auto last_key = iter->key().ToString();
   batch_->DeleteRange(first_key, last_key);
-  auto s = storage_->Write(rocksdb::WriteOptions(), batch_, skip_write_db_);
+  auto s = storage_->Write(rocksdb::WriteOptions(), batch_);
   if (!s.ok()) {
     return s;
   }

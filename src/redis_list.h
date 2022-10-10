@@ -31,7 +31,7 @@
 namespace Redis {
 class List : public Database {
  public:
-  explicit List(Redis::Storage* storage, int64_t table_id, rocksdb::WriteBatch* batch, bool skip_write_db) : Database(storage, table_id, batch, skip_write_db) {}
+  explicit List(Redis::Storage* storage, int64_t table_id, rocksdb::WriteBatch* batch) : Database(storage, table_id, batch) {}
   rocksdb::Status Size(const Slice &user_key, uint32_t *ret);
   rocksdb::Status Trim(const Slice &user_key, int start, int stop);
   rocksdb::Status Set(const Slice &user_key, int index, Slice elem);

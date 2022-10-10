@@ -26,7 +26,7 @@
 class RedisHashTest : public TestBase {
 protected:
   explicit RedisHashTest() : TestBase() {
-    hash = Util::MakeUnique<Redis::Hash>(storage_, 1, &batch_, false);
+    hash = Util::MakeUnique<Redis::Hash>(storage_, 1, &batch_);
   }
   ~RedisHashTest() = default;
   void SetUp() override {

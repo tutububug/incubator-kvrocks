@@ -37,7 +37,7 @@ const int STRING_HDR_SIZE = 5;
 
 class String : public Database {
  public:
-  explicit String(Redis::Storage* storage, int64_t table_id, rocksdb::WriteBatch* batch, bool skip_write_db) : Database(storage, table_id, batch, skip_write_db) {}
+  explicit String(Redis::Storage* storage, int64_t table_id, rocksdb::WriteBatch* batch) : Database(storage, table_id, batch) {}
   rocksdb::Status Append(const std::string &user_key, const std::string &value, int *ret);
   rocksdb::Status Get(const std::string &user_key, std::string *value);
   rocksdb::Status GetSet(const std::string &user_key, const std::string &new_value, std::string *old_value);

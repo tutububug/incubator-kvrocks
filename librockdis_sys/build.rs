@@ -44,6 +44,12 @@ fn build_rockdis(include_dirs: Vec<&PathBuf>) -> Build {
             "../src/redis_reply.cc",
         ]);
     println!("cargo:rustc-link-lib=static=rockdis");
+    println!("cargo:rustc-link-lib=static=rocksdb");
+    println!("cargo:rustc-link-lib=static=z");
+    println!("cargo:rustc-link-lib=static=bz2");
+    println!("cargo:rustc-link-lib=static=lz4");
+    println!("cargo:rustc-link-lib=static=zstd");
+    println!("cargo:rustc-link-lib=static=snappy");
     build
 }
 

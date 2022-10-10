@@ -23,7 +23,7 @@ public:
     bool IsSlotIdEncoded();
 
 public:
-    rocksdb::Status Write(const rocksdb::WriteOptions& options, rocksdb::WriteBatch* updates, bool skip_write_db);
+    rocksdb::Status Write(const rocksdb::WriteOptions& options, rocksdb::WriteBatch* updates);
 
 private:
     rocksdb::DB* db_;

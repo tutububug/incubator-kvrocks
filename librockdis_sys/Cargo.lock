@@ -138,7 +138,7 @@ dependencies = [
  "bindgen",
  "cc",
  "cmake",
- "rocksdb",
+ "librocksdb_sys",
 ]
 
 [[package]]
@@ -279,15 +279,6 @@ name = "regex-syntax"
 version = "0.6.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3f87b73ce11b1619a3c6332f45341e0047173771e8b8b73f87bfeefb7b56244"
-
-[[package]]
-name = "rocksdb"
-version = "0.3.0"
-source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-5.2#23bd00d50c79b40b6a32c11446c86f0714fa7844"
-dependencies = [
- "libc",
- "librocksdb_sys",
-]
 
 [[package]]
 name = "rustc-hash"

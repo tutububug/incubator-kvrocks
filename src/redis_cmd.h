@@ -72,11 +72,6 @@ public:
  protected:
   std::vector<std::string> args_;
   const CommandAttributes *attributes_;
-#ifndef __ROCKSDB_SKIP_WRITE_DB__
-  bool skip_write_db_ = false;
-#else
-  bool skip_write_db_ = true;
-#endif
 };
 
 using CommanderFactory = std::function<std::unique_ptr<Commander>()>;

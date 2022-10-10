@@ -26,7 +26,7 @@
 class RedisListTest : public TestBase {
 protected:
   explicit RedisListTest():TestBase() {
-    list = Util::MakeUnique<Redis::List>(storage_, 1, &batch_, false);
+    list = Util::MakeUnique<Redis::List>(storage_, 1, &batch_);
   }
   ~RedisListTest() = default;
   void SetUp() override {

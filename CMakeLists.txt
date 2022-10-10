@@ -49,6 +49,11 @@ link_directories(
         ${EXTERNAL_LIBS}
 )
 
+option(STORAGE_DO_WRITE "redisdb write to underlay directly" OFF)
+if(STORAGE_DO_WRITE)
+        add_definitions(-DREDIS_STORAGE_DO_WRITE)
+endif()
+
 # redisdb library
 set(REDISDB_SRCS
         src/redis_zset.cc
