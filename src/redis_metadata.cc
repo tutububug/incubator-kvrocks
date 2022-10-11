@@ -46,15 +46,13 @@ InternalKey::InternalKey(Slice input, bool slot_id_encoded)
   if (slot_id_encoded) {
       slotid_ = Redis::DecodeInt(ns_key, off); // decode slot
   }
-  auto key = new std::string();
-  Redis::DecodeBytes(ns_key, off, key); // decode user key
-  key_ = Slice(*key);
+  Redis::DecodeBytes(ns_key, off, &k_); // decode user key
+  key_ = Slice(k_);
 
   cf_code_ = Redis::DecodeInt(ns_key, off); // decode cf code
   version_ = static_cast<uint64_t>(Redis::DecodeInt(ns_key, off)); // decode sub key version
-  auto sub_key = new std::string();
-  Redis::DecodeBytes(ns_key, off, sub_key); // decode sub key
-  sub_key_ = Slice(*sub_key);
+  Redis::DecodeBytes(ns_key, off, &sk_); // decode sub key
+  sub_key_ = Slice(sk_);
 }
 
 InternalKey::InternalKey(Slice nsk, Slice sub_key, uint64_t version, bool slot_id_encoded, int64_t cf_code)
@@ -68,9 +66,8 @@ InternalKey::InternalKey(Slice nsk, Slice sub_key, uint64_t version, bool slot_i
     if (slot_id_encoded) {
         slotid_ = Redis::DecodeInt(ns_key, off); // decode slot
     }
-    auto key = new std::string();
-    Redis::DecodeBytes(ns_key, off, key); // decode user key
-    key_ = Slice(*key);
+    Redis::DecodeBytes(ns_key, off, &k_); // decode user key
+    key_ = Slice(k_);
 }
 
 InternalKey::~InternalKey() {

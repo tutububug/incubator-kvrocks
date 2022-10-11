@@ -103,6 +103,10 @@ class InternalKey {
   uint64_t version_;
   uint16_t slotid_;
   bool slot_id_encoded_;
+
+ private:
+  std::string k_ = "";
+  std::string sk_ = "";
 };
 
 class Metadata {

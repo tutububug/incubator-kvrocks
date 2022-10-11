@@ -29,21 +29,24 @@ redis_processor_handle(redis_processor_t* p, int64_t table_id, const char* req_c
 
   std::string req_str(req_cstr, req_len);
   std::string resp_str;
-  auto batch = new rocksdb::WriteBatch();
-  auto s = p->p->Do(resp_str, batch, table_id, req_str);
+  rocksdb::WriteBatch batch;
+  auto s = p->p->Do(resp_str, &batch, table_id, req_str);
   if (!s.IsOK()) {
     copy_string_to_char_array(&ret.err_msg, &ret.err_len, s.Msg());
     return ret;
   }
   copy_string_to_char_array(&ret.resp_cstr, &ret.resp_len, resp_str);
-  ret.batch = rocksdb_writebatch_create_from(batch->Data().data(), batch->GetDataSize());
+  ret.batch = rocksdb_writebatch_create_from(batch.Data().data(), batch.GetDataSize());
   return ret;
 }
 
 void free_redis_processor_handle_result(redis_processor_handle_result_t* res) {
   if (res->err_msg) free(res->err_msg);
   if (res->resp_cstr) free(res->resp_cstr);
-  if (res->batch) rocksdb_writebatch_destroy(res->batch);
+  if (res->batch) {
+    rocksdb_writebatch_clear(res->batch);
+    rocksdb_writebatch_destroy(res->batch);
+  }
 }
 
 void copy_string_to_char_array(char** out, size_t* out_len, const std::string& in) {

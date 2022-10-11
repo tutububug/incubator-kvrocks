@@ -195,7 +195,7 @@ int64_t DecodeInt(const std::string& b, size_t& off) {
         throw std::runtime_error("insufficient bytes to decode value");
     }
 
-    auto u = bigEndianUint64(std::string(b, 0, 8).c_str());
+    auto u = bigEndianUint64(std::string(b, off, 8).c_str());
     auto v = DecodeCmpUintToInt(u);
     off += 8;
     return v;

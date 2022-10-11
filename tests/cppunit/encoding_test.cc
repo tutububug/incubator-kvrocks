@@ -12,32 +12,20 @@ void printBytes(const std::string& str) {
 }
 
 TEST(KeyEncoding, Int) {
-    std::string str;
-    int64_t in;
-    {
-        size_t off = 0;
-        in = 0x123456;
-        Redis::EncodeInt(&str, in);
-        auto out = Redis::DecodeInt(str, off);
-        assert(in == out);
-    }
-    {
-        str.clear();
-        size_t off = 0;
-        in = 0;
-        Redis::EncodeInt(&str, in);
-        auto out = Redis::DecodeInt(str, off);
-        assert(in == out);
-    }
-    {
-        // TODO fix negative number encode failed
-//        str.clear();
-//        size_t off = 0;
-//        in = -1;
-//        Redis::EncodeInt(&str, in);
-//        auto out = Redis::DecodeInt(str, off);
-//        assert(in == out);
-    }
+  std::string str;
+  size_t off = 0;
+
+  int64_t in = 0x123456;
+  Redis::EncodeInt(&str, in);
+  auto out = Redis::DecodeInt(str, off);
+  assert(in == out);
+
+  in = 0;
+  Redis::EncodeInt(&str, in);
+  out = Redis::DecodeInt(str, off);
+  assert(in == out);
+
+  // TODO fix negative number encode failed, in = -1;
 }
 
 TEST(KeyEncoding, Bytes) {
