@@ -35,6 +35,7 @@
 #include <iostream>
 #include <sstream>
 #include <exception>
+#include "redis_key_encoding.h"
 
 namespace Redis {
 
@@ -78,12 +79,12 @@ void EncodeBytes(std::string* b, const std::string& data) {
     }
 }
 
-void decodeBytes(const std::string& b_in, size_t& off, std::string* buf, bool reverse) {
+Status decodeBytes(const std::string& b_in, size_t& off, std::string* buf, bool reverse) {
     buf->clear();
     while (true) {
         auto b = std::string(b_in, off);
         if (b.size() < encGroupSize+1) {
-            throw std::runtime_error("insufficient bytes to decode value");
+            return Status(Status::NotOK, "insufficient bytes to decode value");
         }
 
         auto groupBytes = std::string(b, 0, encGroupSize+1);
@@ -98,9 +99,7 @@ void decodeBytes(const std::string& b_in, size_t& off, std::string* buf, bool re
             padCount = encMarker - marker;
         }
         if (padCount > encGroupSize) {
-            std::ostringstream ss;
-            ss << "invalid marker byte, group bytes: " << groupBytes;
-            throw std::runtime_error(ss.str());
+            return Status(Status::NotOK, "invalid marker byte, group bytes: " + groupBytes);
         }
 
         auto realGroupSize = encGroupSize - padCount;
@@ -115,9 +114,7 @@ void decodeBytes(const std::string& b_in, size_t& off, std::string* buf, bool re
             // Check validity of padding bytes.
             for (auto it = group.begin()+realGroupSize; it != group.end(); it++) {
                 if (*it != padByte) {
-                    std::ostringstream ss;
-                    ss << "invalid padding byte, group bytes: " << groupBytes;
-                    throw std::runtime_error(ss.str());
+                    return Status(Status::NotOK, "invalid padding byte, group bytes: " + groupBytes);
                 }
             }
             break;
@@ -126,13 +123,14 @@ void decodeBytes(const std::string& b_in, size_t& off, std::string* buf, bool re
     if (reverse) {
         reverseBytes(buf);
     }
+    return Status::OK();
 }
 
 // DecodeBytes decodes bytes which is encoded by EncodeBytes before,
 // returns the leftover bytes and decoded value if no error.
 // `buf` is used to buffer data to avoid the cost of makeslice in decodeBytes when DecodeBytes is called by Decoder.DecodeOne.
-void DecodeBytes(const std::string& b, size_t& off, std::string* buf) {
-    return decodeBytes(b, off, buf, false);
+Status DecodeBytes(const std::string& b, size_t& off, std::string* buf) {
+  return decodeBytes(b, off, buf, false);
 }
 
 void safeReverseBytes(std::string* b) {
@@ -190,15 +188,16 @@ void EncodeInt(std::string* b, int64_t v) {
 
 // DecodeInt decodes value encoded by EncodeInt before.
 // It returns the leftover un-decoded slice, decoded value if no error.
-int64_t DecodeInt(const std::string& b, size_t& off) {
+Status DecodeInt(const std::string& b, size_t& off, int64_t& out) {
     if (b.size() < 8) {
-        throw std::runtime_error("insufficient bytes to decode value");
+        return Status(Status::NotOK, "insufficient bytes to decode value");
     }
 
     auto u = bigEndianUint64(std::string(b, off, 8).c_str());
     auto v = DecodeCmpUintToInt(u);
     off += 8;
-    return v;
+    out = v;
+    return Status::OK();
 }
 
 } // namespace Redis

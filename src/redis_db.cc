@@ -590,14 +590,23 @@ rocksdb::Status SubKeyScanner::Scan(RedisType type,
   auto iter = DBUtil::UniqueIterator(db_, read_options);
   std::string match_prefix_key;
   if (!subkey_prefix.empty()) {
-    InternalKey(ns_key, subkey_prefix, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&match_prefix_key);
+    InternalKey ik;
+    s = ik.Init(ns_key, subkey_prefix, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!s.ok()) return s;
+    ik.Encode(&match_prefix_key);
   } else {
-    InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&match_prefix_key);
+    InternalKey ik;
+    s = ik.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!s.ok()) return s;
+    ik.Encode(&match_prefix_key);
   }
 
   std::string start_key;
   if (!cursor.empty()) {
-    InternalKey(ns_key, cursor, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&start_key);
+    InternalKey ik;
+    s = ik.Init(ns_key, cursor, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!s.ok()) return s;
+    ik.Encode(&start_key);
   } else {
     start_key = match_prefix_key;
   }
@@ -610,7 +619,9 @@ rocksdb::Status SubKeyScanner::Scan(RedisType type,
     if (!iter->key().starts_with(match_prefix_key)) {
       break;
     }
-    InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+    InternalKey ikey;
+    s = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
+    if (!s.ok()) return s;
     keys->emplace_back(ikey.GetSubKey().ToString());
     if (values != nullptr) {
       values->emplace_back(iter->value().ToString());

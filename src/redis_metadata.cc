@@ -37,28 +37,46 @@ static std::atomic<uint64_t> version_counter_ = {0};
 const char* kErrMsgWrongType = "WRONGTYPE Operation against a key holding the wrong kind of value";
 const char* kErrMsgKeyExpired = "the key was expired";
 
-void extractNamespaceKey(const std::string& ns_key, size_t& off,
-                         int64_t& table_id, std::string *key, bool slot_id_encoded, int64_t& slot_id, int64_t& cf_code);
+rocksdb::Status extractNamespaceKey(const std::string& ns_key, size_t& off,
+                                    int64_t& table_id, std::string *key,
+                                    bool slot_id_encoded, int64_t& slot_id,
+                                    int64_t& cf_code);
 
-InternalKey::InternalKey(Slice input, bool slot_id_encoded)
-        : slot_id_encoded_(slot_id_encoded) {
+rocksdb::Status InternalKey::Init(Slice input, bool slot_id_encoded) {
+  slot_id_encoded_ = slot_id_encoded;
+
   auto ns_key = input.ToString();
   size_t off = 0;
   extractNamespaceKey(ns_key, off, table_id_, &k_, slot_id_encoded, reinterpret_cast<int64_t &>(slotid_), cf_code_);
   key_ = Slice(k_);
-  version_ = static_cast<uint64_t>(Redis::DecodeInt(ns_key, off)); // decode sub key version
-  Redis::DecodeBytes(ns_key, off, &sk_); // decode sub key
+  auto s = Redis::DecodeInt(ns_key, off, reinterpret_cast<int64_t &>(version_)); // decode sub key version
+  if (!s.IsOK()) {
+    return rocksdb::Status::IOError(s.Msg());
+  }
+  s = Redis::DecodeBytes(ns_key, off, &sk_); // decode sub key
+  if (!s.IsOK()) {
+    return rocksdb::Status::IOError(s.Msg());
+  }
   sub_key_ = Slice(sk_);
+  return rocksdb::Status::OK();
 }
 
-InternalKey::InternalKey(Slice nsk, Slice sub_key, uint64_t version, bool slot_id_encoded, int64_t cf_code)
-        : sub_key_(sub_key), version_(version), slot_id_encoded_(slot_id_encoded), cf_code_(cf_code) {
-    auto ns_key = nsk.ToString();
-    size_t off = 0;
-    int64_t slotid_ph = 0;
-    int64_t cfcode_ph = 0;
-    extractNamespaceKey(ns_key, off, table_id_, &k_, slot_id_encoded, slotid_ph, cfcode_ph);
-    key_ = Slice(k_);
+rocksdb::Status InternalKey::Init(Slice nsk, Slice sub_key, uint64_t version, bool slot_id_encoded, int64_t cf_code) {
+  sub_key_ = sub_key;
+  version_ = version;
+  slot_id_encoded_ = slot_id_encoded;
+  cf_code_ = cf_code;
+
+  auto ns_key = nsk.ToString();
+  size_t off = 0;
+  int64_t slotid_ph = 0;
+  int64_t cfcode_ph = 0;
+  auto s = extractNamespaceKey(ns_key, off, table_id_, &k_, slot_id_encoded, slotid_ph, cfcode_ph);
+  if (!s.ok()) {
+    return s;
+  }
+  key_ = Slice(k_);
+  return rocksdb::Status::OK();
 }
 
 InternalKey::~InternalKey() {
@@ -98,27 +116,38 @@ bool InternalKey::operator==(const InternalKey &that) const {
   return version_ == that.version_;
 }
 
-void extractNamespaceKey(const std::string& ns_key, size_t& off,
-                         int64_t& table_id, std::string *key, bool slot_id_encoded, int64_t& slot_id, int64_t& cf_code) {
-  table_id = Redis::DecodeInt(ns_key, off); // decode table id
-  if (slot_id_encoded) {
-    slot_id = Redis::DecodeInt(ns_key, off); // decode slot
+rocksdb::Status extractNamespaceKey(const std::string& ns_key, size_t& off,
+                         int64_t& table_id, std::string *key,
+                         bool slot_id_encoded, int64_t& slot_id,
+                         int64_t& cf_code) {
+  auto s = Redis::DecodeInt(ns_key, off, table_id); // decode table id
+  if (!s.IsOK()) {
+    return rocksdb::Status::IOError(s.Msg());
   }
-  Redis::DecodeBytes(ns_key, off, key); // decode user key
-  cf_code = Redis::DecodeInt(ns_key, off); // decode cf code
+  if (slot_id_encoded) {
+    s = Redis::DecodeInt(ns_key, off, slot_id); // decode slot
+    if (!s.IsOK()) {
+      return rocksdb::Status::IOError(s.Msg());
+    }
+  }
+  s = Redis::DecodeBytes(ns_key, off, key); // decode user key
+  if (!s.IsOK()) {
+    return rocksdb::Status::IOError(s.Msg());
+  }
+  s = Redis::DecodeInt(ns_key, off, cf_code); // decode cf code
+  if (!s.IsOK()) {
+    return rocksdb::Status::IOError(s.Msg());
+  }
+  return rocksdb::Status::OK();
 }
 
-void ExtractNamespaceKey(const Slice& nsk, int64_t& table_id, std::string *key, bool slot_id_encoded) {
-    try{
-        auto ns_key = nsk.ToString();
-        size_t off = 0;
-        int64_t slot_id = 0;
-        int64_t cf_code = 0;
+rocksdb::Status ExtractNamespaceKey(const Slice& nsk, int64_t& table_id, std::string *key, bool slot_id_encoded) {
+  auto ns_key = nsk.ToString();
+  size_t off = 0;
+  int64_t slot_id = 0;
+  int64_t cf_code = 0;
 
-        extractNamespaceKey(ns_key, off, table_id, key, slot_id_encoded, slot_id, cf_code);
-    } catch (const std::exception& e) {
-        throw e;
-    }
+  return extractNamespaceKey(ns_key, off, table_id, key, slot_id_encoded, slot_id, cf_code);
 }
 
 void ComposeNamespaceKey(int64_t table_id, const Slice& key, std::string *ns_key, bool slot_id_encoded, int64_t cf_code) {

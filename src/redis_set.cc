@@ -41,7 +41,10 @@ rocksdb::Status Set::Overwrite(Slice user_key, const std::vector<std::string> &m
   SetMetadata metadata;
   std::string sub_key;
   for (const auto &member : members) {
-    InternalKey(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
+    InternalKey ik;
+    auto s = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!s.ok()) return s;
+    ik.Encode(&sub_key);
     batch_->Put(sub_key, Slice());
   }
   metadata.size = static_cast<uint32_t>(members.size());
@@ -65,7 +68,10 @@ rocksdb::Status Set::Add(const Slice &user_key, const std::vector<Slice> &member
   std::string value;
   std::string sub_key;
   for (const auto &member : members) {
-    InternalKey(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
+    InternalKey ik;
+    s = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!s.ok()) return s;
+    ik.Encode(&sub_key);
     s = db_->Get(rocksdb::ReadOptions(), sub_key, &value);
     if (s.ok()) continue;
     batch_->Put(sub_key, Slice());
@@ -93,7 +99,10 @@ rocksdb::Status Set::Remove(const Slice &user_key, const std::vector<Slice> &mem
 
   std::string value, sub_key;
   for (const auto &member : members) {
-    InternalKey(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
+    InternalKey ik;
+    s = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!s.ok()) return s;
+    ik.Encode(&sub_key);
     s = db_->Get(rocksdb::ReadOptions(), sub_key, &value);
     if (!s.ok()) continue;
     batch_->Delete(sub_key);
@@ -135,8 +144,14 @@ rocksdb::Status Set::Members(const Slice &user_key, std::vector<std::string> *me
   if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
   std::string prefix, next_version_prefix;
-  InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&prefix);
-  InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&next_version_prefix);
+  InternalKey ik;
+  s = ik.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!s.ok()) return s;
+  ik.Encode(&prefix);
+  InternalKey ik1;
+  s = ik1.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!s.ok()) return s;
+  ik1.Encode(&next_version_prefix);
 
   rocksdb::ReadOptions read_options;
   LatestSnapShot ss(db_);
@@ -149,7 +164,9 @@ rocksdb::Status Set::Members(const Slice &user_key, std::vector<std::string> *me
   for (iter->Seek(prefix);
        iter->Valid() && iter->key().starts_with(prefix);
        iter->Next()) {
-    InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+    InternalKey ikey;
+    s = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
+    if (!s.ok()) return s;
     members->emplace_back(ikey.GetSubKey().ToString());
   }
   return rocksdb::Status::OK();
@@ -169,7 +186,10 @@ rocksdb::Status Set::IsMember(const Slice &user_key, const Slice &member, int *r
   LatestSnapShot ss(db_);
   read_options.snapshot = ss.GetSnapShot();
   std::string sub_key;
-  InternalKey(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
+  InternalKey ik;
+  s = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!s.ok()) return s;
+  ik.Encode(&sub_key);
   std::string value;
   s = db_->Get(read_options, sub_key, &value);
   if (s.ok()) {
@@ -194,8 +214,14 @@ rocksdb::Status Set::Take(const Slice &user_key, std::vector<std::string> *membe
   if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
   std::string prefix, next_version_prefix;
-  InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&prefix);
-  InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&next_version_prefix);
+  InternalKey ik;
+  s = ik.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!s.ok()) return s;
+  ik.Encode(&prefix);
+  InternalKey ik1;
+  s = ik1.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!s.ok()) return s;
+  ik1.Encode(&next_version_prefix);
 
   rocksdb::ReadOptions read_options;
   LatestSnapShot ss(db_);
@@ -208,7 +234,9 @@ rocksdb::Status Set::Take(const Slice &user_key, std::vector<std::string> *membe
   for (iter->Seek(prefix);
        iter->Valid() && iter->key().starts_with(prefix);
        iter->Next()) {
-    InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+    InternalKey ikey;
+    s = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
+    if (!s.ok()) return s;
     members->emplace_back(ikey.GetSubKey().ToString());
     if (pop) batch_->Delete(iter->key());
     if (++n >= count) break;

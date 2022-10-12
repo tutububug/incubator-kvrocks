@@ -77,14 +77,13 @@ struct KeyNumStats {
   uint64_t avg_ttl = 0;
 };
 
-void ExtractNamespaceKey(const Slice& nsk, int64_t& table_id, std::string *key, bool slot_id_encoded);
+rocksdb::Status ExtractNamespaceKey(const Slice& nsk, int64_t& table_id, std::string *key, bool slot_id_encoded);
 void ComposeNamespaceKey(int64_t table_id, const Slice& key, std::string *ns_key, bool slot_id_encoded, int64_t cf_code);
 void ComposeSlotKeyPrefix(int64_t table_id, int slotid, std::string *output);
 
 class InternalKey {
  public:
-  explicit InternalKey(Slice ns_key, Slice sub_key, uint64_t version, bool slot_id_encoded, int64_t cf_code);
-  explicit InternalKey(Slice input, bool slot_id_encoded);
+  InternalKey() = default;
   ~InternalKey();
 
   int64_t GetNamespace() const;
@@ -94,6 +93,10 @@ class InternalKey {
   uint64_t GetVersion() const;
   void Encode(std::string *out);
   bool operator==(const InternalKey &that) const;
+
+ public:
+  rocksdb::Status Init(Slice ns_key, Slice sub_key, uint64_t version, bool slot_id_encoded, int64_t cf_code);
+  rocksdb::Status Init(Slice input, bool slot_id_encoded);
 
  private:
   int64_t table_id_;

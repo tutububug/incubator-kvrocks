@@ -53,7 +53,10 @@ rocksdb::Status Hash::Get(const Slice &user_key, const Slice &field, std::string
   rocksdb::ReadOptions read_options;
   read_options.snapshot = ss.GetSnapShot();
   std::string sub_key;
-  InternalKey(ns_key, field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
+  InternalKey ik;
+  s = ik.Init(ns_key, field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!s.ok()) return s;
+  ik.Encode(&sub_key);
   return db_->Get(read_options, sub_key, value);
 }
 
@@ -70,7 +73,10 @@ rocksdb::Status Hash::IncrBy(const Slice &user_key, const Slice &field, int64_t 
   if (!s.ok() && !s.IsNotFound()) return s;
 
   std::string sub_key;
-  InternalKey(ns_key, field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
+  InternalKey ik;
+  s = ik.Init(ns_key, field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!s.ok()) return s;
+  ik.Encode(&sub_key);
   if (s.ok()) {
     std::string value_bytes;
     std::size_t idx = 0;
@@ -117,7 +123,10 @@ rocksdb::Status Hash::IncrByFloat(const Slice &user_key, const Slice &field, dou
   if (!s.ok() && !s.IsNotFound()) return s;
 
   std::string sub_key;
-  InternalKey(ns_key, field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
+  InternalKey ik;
+  s = ik.Init(ns_key, field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!s.ok()) return s;
+  ik.Encode(&sub_key);
   if (s.ok()) {
     std::string value_bytes;
     std::size_t idx = 0;
@@ -171,7 +180,10 @@ rocksdb::Status Hash::MGet(const Slice &user_key,
   read_options.snapshot = ss.GetSnapShot();
   std::string sub_key, value;
   for (const auto &field : fields) {
-    InternalKey(ns_key, field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
+    InternalKey ik;
+    s = ik.Init(ns_key, field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!s.ok()) return s;
+    ik.Encode(&sub_key);
     value.clear();
     auto s = db_->Get(read_options, sub_key, &value);
     if (!s.ok() && !s.IsNotFound()) return s;
@@ -207,7 +219,10 @@ rocksdb::Status Hash::Delete(const Slice &user_key, const std::vector<Slice> &fi
 
   std::string sub_key, value;
   for (const auto &field : fields) {
-    InternalKey(ns_key, field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
+    InternalKey ik;
+    s = ik.Init(ns_key, field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!s.ok()) return s;
+    ik.Encode(&sub_key);
     s = db_->Get(rocksdb::ReadOptions(), sub_key, &value);
     if (s.ok()) {
       *ret += 1;
@@ -239,7 +254,10 @@ rocksdb::Status Hash::MSet(const Slice &user_key, const std::vector<FieldValue> 
   for (const auto &fv : field_values) {
     exists = false;
     std::string sub_key;
-    InternalKey(ns_key, fv.field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&sub_key);
+    InternalKey ik;
+    s = ik.Init(ns_key, fv.field, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!s.ok()) return s;
+    ik.Encode(&sub_key);
     if (metadata.size > 0) {
       std::string fieldValue;
       s = db_->Get(rocksdb::ReadOptions(), sub_key, &fieldValue);
@@ -272,8 +290,14 @@ rocksdb::Status Hash::GetAll(const Slice &user_key, std::vector<FieldValue> *fie
   if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
   std::string prefix_key, next_version_prefix_key;
-  InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&prefix_key);
-  InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDData).Encode(&next_version_prefix_key);
+  InternalKey ik;
+  s = ik.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!s.ok()) return s;
+  ik.Encode(&prefix_key);
+  InternalKey ik1;
+  s = ik1.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!s.ok()) return s;
+  ik1.Encode(&next_version_prefix_key);
 
   rocksdb::ReadOptions read_options;
   LatestSnapShot ss(db_);
@@ -288,12 +312,16 @@ rocksdb::Status Hash::GetAll(const Slice &user_key, std::vector<FieldValue> *fie
        iter->Next()) {
     FieldValue fv;
     if (type == HashFetchType::kOnlyKey) {
-      InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+      InternalKey ikey;
+      s = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
+      if (!s.ok()) return s;
       fv.field = ikey.GetSubKey().ToString();
     } else if (type == HashFetchType::kOnlyValue) {
       fv.value = iter->value().ToString();
     } else {
-      InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+      InternalKey ikey;
+      s = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
+      if (!s.ok()) return s;
       fv.field = ikey.GetSubKey().ToString();
       fv.value = iter->value().ToString();
     }

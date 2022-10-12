@@ -17,12 +17,13 @@ TEST(KeyEncoding, Int) {
 
   int64_t in = 0x123456;
   Redis::EncodeInt(&str, in);
-  auto out = Redis::DecodeInt(str, off);
+  int64_t out;
+  Redis::DecodeInt(str, off, out);
   assert(in == out);
 
   in = 0;
   Redis::EncodeInt(&str, in);
-  out = Redis::DecodeInt(str, off);
+  Redis::DecodeInt(str, off, out);
   assert(in == out);
 
   // TODO fix negative number encode failed, in = -1;
@@ -84,7 +85,8 @@ TEST(KeyEncoding, TestInternalKey) {
 
     std::string ns_key;
     ComposeNamespaceKey(table_id_in, hash_key, &ns_key, slot_id_encoded, cf_code);
-    auto inner_key_in = InternalKey(ns_key, field_key, version, slot_id_encoded, cf_code);
+    InternalKey inner_key_in;
+    inner_key_in.Init(ns_key, field_key, version, slot_id_encoded, cf_code);
     assert(inner_key_in.GetNamespace() == table_id_in);
     assert(inner_key_in.GetCF() == kColumnFamilyIDMetadata);
     assert(inner_key_in.GetKey() == hash_key);
@@ -92,7 +94,8 @@ TEST(KeyEncoding, TestInternalKey) {
 
     std::string in;
     inner_key_in.Encode(&in);
-    auto inner_key_out = InternalKey(in, slot_id_encoded);
+    InternalKey inner_key_out;
+    inner_key_out.Init(in, slot_id_encoded);
     assert(inner_key_out.GetNamespace() == inner_key_in.GetNamespace());
     assert(inner_key_out.GetCF() == inner_key_in.GetCF());
     assert(inner_key_out.GetKey() == inner_key_in.GetKey());
