@@ -37,19 +37,15 @@ static std::atomic<uint64_t> version_counter_ = {0};
 const char* kErrMsgWrongType = "WRONGTYPE Operation against a key holding the wrong kind of value";
 const char* kErrMsgKeyExpired = "the key was expired";
 
+void extractNamespaceKey(const std::string& ns_key, size_t& off,
+                         int64_t& table_id, std::string *key, bool slot_id_encoded, int64_t& slot_id, int64_t& cf_code);
+
 InternalKey::InternalKey(Slice input, bool slot_id_encoded)
         : slot_id_encoded_(slot_id_encoded) {
   auto ns_key = input.ToString();
   size_t off = 0;
-
-  table_id_ = Redis::DecodeInt(ns_key, off);
-  if (slot_id_encoded) {
-      slotid_ = Redis::DecodeInt(ns_key, off); // decode slot
-  }
-  Redis::DecodeBytes(ns_key, off, &k_); // decode user key
+  extractNamespaceKey(ns_key, off, table_id_, &k_, slot_id_encoded, reinterpret_cast<int64_t &>(slotid_), cf_code_);
   key_ = Slice(k_);
-
-  cf_code_ = Redis::DecodeInt(ns_key, off); // decode cf code
   version_ = static_cast<uint64_t>(Redis::DecodeInt(ns_key, off)); // decode sub key version
   Redis::DecodeBytes(ns_key, off, &sk_); // decode sub key
   sub_key_ = Slice(sk_);
@@ -57,16 +53,11 @@ InternalKey::InternalKey(Slice input, bool slot_id_encoded)
 
 InternalKey::InternalKey(Slice nsk, Slice sub_key, uint64_t version, bool slot_id_encoded, int64_t cf_code)
         : sub_key_(sub_key), version_(version), slot_id_encoded_(slot_id_encoded), cf_code_(cf_code) {
-    slot_id_encoded_ = slot_id_encoded;
-
     auto ns_key = nsk.ToString();
     size_t off = 0;
-
-    table_id_ = Redis::DecodeInt(ns_key, off);
-    if (slot_id_encoded) {
-        slotid_ = Redis::DecodeInt(ns_key, off); // decode slot
-    }
-    Redis::DecodeBytes(ns_key, off, &k_); // decode user key
+    int64_t slotid_ph = 0;
+    int64_t cfcode_ph = 0;
+    extractNamespaceKey(ns_key, off, table_id_, &k_, slot_id_encoded, slotid_ph, cfcode_ph);
     key_ = Slice(k_);
 }
 
@@ -94,15 +85,7 @@ uint64_t InternalKey::GetVersion() const {
 }
 
 void InternalKey::Encode(std::string *out) {
-    out->clear();
-
-    Redis::EncodeInt(out, table_id_); // encode table id
-    if (slot_id_encoded_) {
-        auto slot_id = GetSlotNumFromKey(key_.ToString());
-        Redis::EncodeInt(out, slot_id); // encode slot
-    }
-    Redis::EncodeBytes(out, key_.ToString()); // encode user key
-    Redis::EncodeInt(out, cf_code_); // encode cf code
+    ComposeNamespaceKey(table_id_, key_, out, slot_id_encoded_, cf_code_);
     Redis::EncodeInt(out, version_); // encode version
     if (sub_key_.size() > 0) {
       Redis::EncodeBytes(out, sub_key_.ToString()); // encode sub key
@@ -115,17 +98,24 @@ bool InternalKey::operator==(const InternalKey &that) const {
   return version_ == that.version_;
 }
 
-void ExtractNamespaceKey(const Slice& nsk, int64_t& table_id, std::string *key, bool slot_id_encoded) {
-    auto ns_key = nsk.ToString();
-    size_t off = 0;
+void extractNamespaceKey(const std::string& ns_key, size_t& off,
+                         int64_t& table_id, std::string *key, bool slot_id_encoded, int64_t& slot_id, int64_t& cf_code) {
+  table_id = Redis::DecodeInt(ns_key, off); // decode table id
+  if (slot_id_encoded) {
+    slot_id = Redis::DecodeInt(ns_key, off); // decode slot
+  }
+  Redis::DecodeBytes(ns_key, off, key); // decode user key
+  cf_code = Redis::DecodeInt(ns_key, off); // decode cf code
+}
 
+void ExtractNamespaceKey(const Slice& nsk, int64_t& table_id, std::string *key, bool slot_id_encoded) {
     try{
-        table_id = Redis::DecodeInt(ns_key, off); // decode table id
-        if (slot_id_encoded) {
-            Redis::DecodeInt(ns_key, off); // decode slot
-        }
-        Redis::DecodeBytes(ns_key, off, key); // decode user key
-        Redis::DecodeInt(ns_key, off); // decode cf code
+        auto ns_key = nsk.ToString();
+        size_t off = 0;
+        int64_t slot_id = 0;
+        int64_t cf_code = 0;
+
+        extractNamespaceKey(ns_key, off, table_id, key, slot_id_encoded, slot_id, cf_code);
     } catch (const std::exception& e) {
         throw e;
     }
