@@ -26,6 +26,9 @@ redis_processor_handle(redis_processor_t* p, int64_t table_id, const char* req_c
 void
 free_redis_processor_handle_result(redis_processor_handle_result_t* res);
 
+size_t
+get_redis_key_prefix_length(const char* key_cstr, size_t key_len);
+
 #ifdef __cplusplus
 }
 #endif

@@ -80,6 +80,7 @@ struct KeyNumStats {
 rocksdb::Status ExtractNamespaceKey(const Slice& nsk, int64_t& table_id, std::string *key, bool slot_id_encoded);
 void ComposeNamespaceKey(int64_t table_id, const Slice& key, std::string *ns_key, bool slot_id_encoded, int64_t cf_code);
 void ComposeSlotKeyPrefix(int64_t table_id, int slotid, std::string *output);
+rocksdb::Status CalculateNamespaceKeyPrefixLength(const std::string& key, size_t& off);
 
 class InternalKey {
  public:

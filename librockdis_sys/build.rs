@@ -4,10 +4,12 @@ use std::str;
 use std::env;
 
 fn main() {
+    let redisdb_include_dir = env::current_dir().unwrap()
+        .join("..").join("src");
     let rocksdb_include_dir = env::current_dir().unwrap()
         .join("rocksdb").join("include");
 
-    let mut build= build_rockdis(vec![&rocksdb_include_dir]);
+    let mut build= build_rockdis(vec![&redisdb_include_dir, &rocksdb_include_dir]);
     link_cpp(&mut build);
     build.warnings(false).compile("librockdis.a");
 

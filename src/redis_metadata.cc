@@ -116,10 +116,9 @@ bool InternalKey::operator==(const InternalKey &that) const {
   return version_ == that.version_;
 }
 
-rocksdb::Status extractNamespaceKey(const std::string& ns_key, size_t& off,
-                         int64_t& table_id, std::string *key,
-                         bool slot_id_encoded, int64_t& slot_id,
-                         int64_t& cf_code) {
+rocksdb::Status extractNamespaceKeyPrefix(const std::string& ns_key, size_t& off,
+                                          int64_t& table_id, std::string *key,
+                                          bool slot_id_encoded, int64_t& slot_id) {
   auto s = Redis::DecodeInt(ns_key, off, table_id); // decode table id
   if (!s.IsOK()) {
     return rocksdb::Status::IOError(s.Msg());
@@ -134,9 +133,32 @@ rocksdb::Status extractNamespaceKey(const std::string& ns_key, size_t& off,
   if (!s.IsOK()) {
     return rocksdb::Status::IOError(s.Msg());
   }
-  s = Redis::DecodeInt(ns_key, off, cf_code); // decode cf code
+  return rocksdb::Status::OK();
+}
+
+rocksdb::Status extractNamespaceKey(const std::string& ns_key, size_t& off,
+                         int64_t& table_id, std::string *key,
+                         bool slot_id_encoded, int64_t& slot_id,
+                         int64_t& cf_code) {
+  auto sts = extractNamespaceKeyPrefix(ns_key, off, table_id, key, slot_id_encoded, slot_id);
+  if (!sts.ok()) {
+    return sts;
+  }
+  auto s = Redis::DecodeInt(ns_key, off, cf_code); // decode cf code
   if (!s.IsOK()) {
     return rocksdb::Status::IOError(s.Msg());
+  }
+  return rocksdb::Status::OK();
+}
+
+rocksdb::Status CalculateNamespaceKeyPrefixLength(const std::string& key, size_t& off) {
+  int64_t table_id;
+  std::string uk;
+  bool slot_id_encoded;
+  int64_t slot_id;
+  auto s = extractNamespaceKeyPrefix(key, off, table_id, &uk, slot_id_encoded, slot_id);
+  if (!s.ok()) {
+    return s;
   }
   return rocksdb::Status::OK();
 }

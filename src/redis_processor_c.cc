@@ -1,6 +1,7 @@
 #include "redis_processor_c.h"
 #include "redis_processor.h"
 #include "status.h"
+#include "redis_metadata.h"
 
 struct redis_processor { Redis::Processor* p; };
 struct rocksdb_t { rocksdb::DB* rep; };
@@ -54,4 +55,11 @@ void copy_string_to_char_array(char** out, size_t* out_len, const std::string& i
   memcpy(o, in.data(), in.size());
   *out = o;
   *out_len = in.size();
+}
+
+size_t get_redis_key_prefix_length(const char* key_cstr, size_t key_len) {
+  auto key = std::string(key_cstr, key_len);
+  size_t off = 0;
+  CalculateNamespaceKeyPrefixLength(key, off);
+  return off;
 }

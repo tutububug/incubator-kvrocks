@@ -4253,6 +4253,12 @@ extern "C" {
 extern "C" {
     pub fn free_redis_processor_handle_result(res: *mut redis_processor_handle_result_t);
 }
+extern "C" {
+    pub fn get_redis_key_prefix_length(
+        key_cstr: *const ::std::os::raw::c_char,
+        key_len: size_t,
+    ) -> size_t;
+}
 pub type __builtin_va_list = [__va_list_tag; 1usize];
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
