@@ -75,4 +75,7 @@ std::unique_ptr<T> MakeUnique(Args&& ... args) {
   return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
+Status Strtoll(const std::string& str, long long& out, int base = 10);
+Status Strtod(const std::string& str, double& out);
+
 }  // namespace Util

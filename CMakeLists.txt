@@ -4,6 +4,7 @@ project(rockdis
         LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_C_FLAGS_DEBUG "-D_DEBUG")
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -g")

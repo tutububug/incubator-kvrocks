@@ -52,9 +52,9 @@ rocksdb::Status ZSet::Add(const Slice &user_key, uint8_t flags, std::vector<Memb
   std::set<std::string> added_member_keys;
   for (int i = static_cast<int>(mscores->size()-1); i >= 0; i--) {
     InternalKey ik;
-    s = ik.Init(ns_key, (*mscores)[i].member, metadata.version,
+    auto is = ik.Init(ns_key, (*mscores)[i].member, metadata.version,
                 storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
-    if (!s.ok()) return s;
+    if (!is.ok()) return is;
     ik.Encode(&member_key);
 
     // Fix the corner case that adds the same member which may add the score
@@ -87,8 +87,8 @@ rocksdb::Status ZSet::Add(const Slice &user_key, uint8_t flags, std::vector<Memb
           old_score_bytes.append((*mscores)[i].member);
           std::string old_score_key;
           InternalKey ik;
-          s = ik.Init(ns_key, old_score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-          if (!s.ok()) return s;
+          auto is = ik.Init(ns_key, old_score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+          if (!is.ok()) return is;
           ik.Encode(&old_score_key);
           batch_->Delete(old_score_key);
           std::string new_score_bytes, new_score_key;
@@ -96,8 +96,8 @@ rocksdb::Status ZSet::Add(const Slice &user_key, uint8_t flags, std::vector<Memb
           batch_->Put(member_key, new_score_bytes);
           new_score_bytes.append((*mscores)[i].member);
           InternalKey ik1;
-          s = ik1.Init(ns_key, new_score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-          if (!s.ok()) return s;
+          is = ik1.Init(ns_key, new_score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+          if (!is.ok()) return is;
           ik1.Encode(&new_score_key);
           batch_->Put(new_score_key, Slice());
         }
@@ -109,8 +109,8 @@ rocksdb::Status ZSet::Add(const Slice &user_key, uint8_t flags, std::vector<Memb
     batch_->Put(member_key, score_bytes);
     score_bytes.append((*mscores)[i].member);
     InternalKey ik1;
-    s = ik1.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-    if (!s.ok()) return s;
+    is = ik1.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+    if (!is.ok()) return is;
     ik1.Encode(&score_key);
     batch_->Put(score_key, Slice());
     added++;
@@ -171,16 +171,16 @@ rocksdb::Status ZSet::Pop(const Slice &user_key, int count, bool min, std::vecto
   PutDouble(&score_bytes, score);
   std::string start_key, prefix_key, next_verison_prefix_key;
   InternalKey ik;
-  s = ik.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  auto is = ik.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik.Encode(&start_key);
   InternalKey ik1;
-  s = ik1.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  is = ik1.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik1.Encode(&prefix_key);
   InternalKey ik2;
-  s = ik2.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  is = ik2.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik2.Encode(&next_verison_prefix_key);
 
   rocksdb::ReadOptions read_options;
@@ -202,15 +202,15 @@ rocksdb::Status ZSet::Pop(const Slice &user_key, int count, bool min, std::vecto
       iter->Valid() && iter->key().starts_with(prefix_key);
       min ? iter->Next() : iter->Prev()) {
     InternalKey ikey;
-    s = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
-    if (!s.ok()) return s;
+    auto is = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
+    if (!is.ok()) return is;
     Slice score_key = ikey.GetSubKey();
     GetDouble(&score_key, &score);
     mscores->emplace_back(MemberScore{score_key.ToString(), score});
     std::string default_cf_key;
     InternalKey ik;
-    s = ik.Init(ns_key, score_key, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-    if (!s.ok()) return s;
+    is = ik.Init(ns_key, score_key, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+    if (!is.ok()) return is;
     ik.Encode(&default_cf_key);
     batch_->Delete(default_cf_key);
     batch_->Delete(iter->key());
@@ -253,16 +253,16 @@ rocksdb::Status ZSet::Range(const Slice &user_key, int start, int stop, uint8_t 
   PutDouble(&score_bytes, score);
   std::string start_key, prefix_key, next_verison_prefix_key;
   InternalKey ik;
-  s = ik.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  auto is = ik.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik.Encode(&start_key);
   InternalKey ik1;
-  s = ik1.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  is = ik1.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik1.Encode(&prefix_key);
   InternalKey ik2;
-  s = ik2.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  is = ik2.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik2.Encode(&next_verison_prefix_key);
 
   int count = 0;
@@ -287,16 +287,16 @@ rocksdb::Status ZSet::Range(const Slice &user_key, int start, int stop, uint8_t 
       iter->Valid() && iter->key().starts_with(prefix_key);
       !reversed ? iter->Next() : iter->Prev()) {
     InternalKey ikey;
-    s = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
-    if (!s.ok()) return s;
+    auto is = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
+    if (!is.ok()) return is;
     Slice score_key = ikey.GetSubKey();
     GetDouble(&score_key, &score);
     if (count >= start) {
       if (removed) {
         std::string sub_key;
         InternalKey ik;
-        s = ik.Init(ns_key, score_key, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-        if (!s.ok()) return s;
+        auto is = ik.Init(ns_key, score_key, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+        if (!is.ok()) return is;
         ik.Encode(&sub_key);
         batch_->Delete(sub_key);
         batch_->Delete(iter->key());
@@ -374,16 +374,16 @@ rocksdb::Status ZSet::RangeByScore(const Slice &user_key,
   PutDouble(&start_score_bytes, spec.reversed ? (spec.maxex ? spec.max : max_next_score) : spec.min);
   std::string start_key, prefix_key, next_verison_prefix_key;
   InternalKey ik;
-  s = ik.Init(ns_key, start_score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  auto is = ik.Init(ns_key, start_score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik.Encode(&start_key);
   InternalKey ik1;
-  s = ik1.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  is = ik1.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik1.Encode(&prefix_key);
   InternalKey ik2;
-  s = ik2.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  is = ik2.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik2.Encode(&next_verison_prefix_key);
 
   rocksdb::ReadOptions read_options;
@@ -410,8 +410,8 @@ rocksdb::Status ZSet::RangeByScore(const Slice &user_key,
       iter->Valid() && iter->key().starts_with(prefix_key);
       !spec.reversed ? iter->Next() : iter->Prev()) {
     InternalKey ikey;
-    s = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
-    if (!s.ok()) return s;
+    auto is = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
+    if (!is.ok()) return is;
     Slice score_key = ikey.GetSubKey();
     double score;
     GetDouble(&score_key, &score);
@@ -426,8 +426,8 @@ rocksdb::Status ZSet::RangeByScore(const Slice &user_key,
     if (spec.removed) {
       std::string sub_key;
       InternalKey ik;
-      s = ik.Init(ns_key, score_key, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-      if (!s.ok()) return s;
+      auto is = ik.Init(ns_key, score_key, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+      if (!is.ok()) return is;
       ik.Encode(&sub_key);
       batch_->Delete(sub_key);
       batch_->Delete(iter->key());
@@ -473,16 +473,16 @@ rocksdb::Status ZSet::RangeByLex(const Slice &user_key,
   std::string start_member = spec.reversed ? spec.max : spec.min;
   std::string start_key, prefix_key, next_version_prefix_key;
   InternalKey ik;
-  s = ik.Init(ns_key, start_member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  auto is = ik.Init(ns_key, start_member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik.Encode(&start_key);
   InternalKey ik1;
-  s = ik1.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  is = ik1.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik1.Encode(&prefix_key);
   InternalKey ik2;
-  s = ik2.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  is = ik2.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik2.Encode(&next_version_prefix_key);
 
   rocksdb::ReadOptions read_options;
@@ -511,8 +511,8 @@ rocksdb::Status ZSet::RangeByLex(const Slice &user_key,
        iter->Valid() && iter->key().starts_with(prefix_key);
        (!spec.reversed ? iter->Next() : iter->Prev())) {
     InternalKey ikey;
-    s = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
-    if (!s.ok()) return s;
+    auto is = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
+    if (!is.ok()) return is;
     Slice member = ikey.GetSubKey();
     if (spec.reversed) {
         if (member.ToString() < spec.min || (spec.minex && member == spec.min)) {
@@ -531,8 +531,8 @@ rocksdb::Status ZSet::RangeByLex(const Slice &user_key,
       score_bytes.append(member.data(), member.size());
       std::string score_key;
       InternalKey ik;
-      s = ik.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-      if (!s.ok()) return s;
+      auto is = ik.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+      if (!is.ok()) return is;
       ik.Encode(&score_key);
       batch_->Delete(score_key);
       batch_->Delete(iter->key());
@@ -566,8 +566,8 @@ rocksdb::Status ZSet::Score(const Slice &user_key, const Slice &member, double *
 
   std::string member_key, score_bytes;
   InternalKey ik;
-  s = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
-  if (!s.ok()) return s;
+  auto is = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!is.ok()) return is;
   ik.Encode(&member_key);
   s = db_->Get(read_options, member_key, &score_bytes);
   if (!s.ok()) return s;
@@ -589,16 +589,16 @@ rocksdb::Status ZSet::Remove(const Slice &user_key, const std::vector<Slice> &me
   std::string member_key, score_key;
   for (const auto &member : members) {
     InternalKey ik;
-    s = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
-    if (!s.ok()) return s;
+    auto is = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!is.ok()) return is;
     ik.Encode(&member_key);
     std::string score_bytes;
     s = db_->Get(rocksdb::ReadOptions(), member_key, &score_bytes);
     if (s.ok()) {
       score_bytes.append(member.data(), member.size());
       InternalKey ik;
-      s = ik.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-      if (!s.ok()) return s;
+      is = ik.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+      if (!is.ok()) return is;
       ik.Encode(&score_key);
       batch_->Delete(member_key);
       batch_->Delete(score_key);
@@ -647,8 +647,8 @@ rocksdb::Status ZSet::Rank(const Slice &user_key, const Slice &member, bool reve
   read_options.snapshot = ss.GetSnapShot();
   std::string score_bytes, member_key;
   InternalKey ik;
-  s = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
-  if (!s.ok()) return s;
+  auto is = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+  if (!is.ok()) return is;
   ik.Encode(&member_key);
   s = db_->Get(read_options, member_key, &score_bytes);
   if (!s.ok()) return s.IsNotFound()? rocksdb::Status::OK():s;
@@ -658,16 +658,16 @@ rocksdb::Status ZSet::Rank(const Slice &user_key, const Slice &member, bool reve
   double start_score = !reversed ? kMinScore : kMaxScore;
   PutDouble(&start_score_bytes, start_score);
   InternalKey ik1;
-  s = ik1.Init(ns_key, start_score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  is = ik1.Init(ns_key, start_score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik1.Encode(&start_key);
   InternalKey ik2;
-  s = ik2.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  is = ik2.Init(ns_key, "", metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik2.Encode(&prefix_key);
   InternalKey ik3;
-  s = ik3.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-  if (!s.ok()) return s;
+  is = ik3.Init(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+  if (!is.ok()) return is;
   ik3.Encode(&next_verison_prefix_key);
 
   int rank = 0;
@@ -687,8 +687,8 @@ rocksdb::Status ZSet::Rank(const Slice &user_key, const Slice &member, bool reve
       iter->Valid() && iter->key().starts_with(prefix_key);
       !reversed ? iter->Next() : iter->Prev()) {
     InternalKey ikey;
-    s = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
-    if (!s.ok()) return s;
+    auto is = ikey.Init(iter->key(), storage_->IsSlotIdEncoded());
+    if (!is.ok()) return is;
     Slice score_key = ikey.GetSubKey();
     double score;
     GetDouble(&score_key, &score);
@@ -709,15 +709,15 @@ rocksdb::Status ZSet::Overwrite(const Slice &user_key, const std::vector<MemberS
   for (const auto &ms : mscores) {
     std::string member_key, score_bytes, score_key;
     InternalKey ik;
-    auto s = ik.Init(ns_key, ms.member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
-    if (!s.ok()) return s;
+    auto is = ik.Init(ns_key, ms.member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!is.ok()) return is;
     ik.Encode(&member_key);
     PutDouble(&score_bytes, ms.score);
     batch_->Put(member_key, score_bytes);
     score_bytes.append(ms.member);
     InternalKey ik1;
-    s = ik1.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
-    if (!s.ok()) return s;
+    is = ik1.Init(ns_key, score_bytes, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDZSetScore);
+    if (!is.ok()) return is;
     ik1.Encode(&score_key);
     batch_->Put(score_key, Slice());
   }
@@ -948,8 +948,8 @@ rocksdb::Status ZSet::MGet(const Slice &user_key,
   std::string score_bytes, member_key;
   for (const auto &member : members) {
     InternalKey ik;
-    s = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
-    if (!s.ok()) return s;
+    auto is = ik.Init(ns_key, member, metadata.version, storage_->IsSlotIdEncoded(), kColumnFamilyIDData);
+    if (!is.ok()) return is;
     ik.Encode(&member_key);
     score_bytes.clear();
     s = db_->Get(read_options, member_key, &score_bytes);

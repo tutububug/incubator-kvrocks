@@ -321,25 +321,23 @@ int GetPeerAddr(int fd, std::string *addr, uint32_t *port) {
 }
 
 Status DecimalStringToNum(const std::string &str, int64_t *n, int64_t min, int64_t max) {
-  try {
-    *n = static_cast<int64_t>(std::stoll(str));
-    if (max > min && (*n < min || *n > max)) {
-      return Status(Status::NotOK, "value shoud between "+std::to_string(min)+" and "+std::to_string(max));
-    }
-  } catch (std::exception &e) {
+  auto s = Strtoll(str, *n);
+  if (!s.IsOK()) {
     return Status(Status::NotOK, "value is not an integer or out of range");
+  }
+  if (max > min && (*n < min || *n > max)) {
+    return Status(Status::NotOK, "value shoud between "+std::to_string(min)+" and "+std::to_string(max));
   }
   return Status::OK();
 }
 
 Status OctalStringToNum(const std::string &str, int64_t *n, int64_t min, int64_t max) {
-  try {
-    *n = static_cast<int64_t>(std::stoll(str, nullptr, 8));
-    if (max > min && (*n < min || *n > max)) {
-      return Status(Status::NotOK, "value shoud between "+std::to_string(min)+" and "+std::to_string(max));
-    }
-  } catch (std::exception &e) {
+  auto s = Strtoll(str, *n, 8);
+  if (!s.IsOK()) {
     return Status(Status::NotOK, "value is not an integer or out of range");
+  }
+  if (max > min && (*n < min || *n > max)) {
+    return Status(Status::NotOK, "value shoud between "+std::to_string(min)+" and "+std::to_string(max));
   }
   return Status::OK();
 }
@@ -671,6 +669,36 @@ uint64_t GetTimeStampUS(void) {
   auto tp = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::system_clock::now());
   auto ts = std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch());
   return ts.count();
+}
+
+Status Strtoll(const std::string& str, long long& out, int base) {
+  char* end = nullptr;
+  out = strtoll(str.c_str(), &end, base);
+  if (out == 0) {
+    if (errno == EINVAL) {
+      return Status(Status::NotOK, std::string("invalid number: ").append(strerror(errno)));
+    }
+  }
+  if (out == LLONG_MIN || out == LLONG_MAX) {
+    if (errno == ERANGE)
+      return Status(Status::NotOK, std::string("number out of range: ").append(strerror(errno)));
+  }
+  if (*end != '\0') {
+    return Status(Status::NotOK, "not a int number");
+  }
+  return Status::OK();
+}
+
+Status Strtod(const std::string& str, double& out) {
+  char* end = nullptr;
+  out = strtod(str.c_str(), &end);
+  if (errno == ERANGE) {
+    return Status(Status::NotOK, std::string("number out of range: ").append(strerror(errno)));
+  }
+  if (*end != '\0') {
+    return Status(Status::NotOK, "not a float number");
+  }
+  return Status::OK();
 }
 
 }  // namespace Util

@@ -260,14 +260,12 @@ rocksdb::Status String::IncrBy(const std::string &user_key, int64_t increment, i
 
   value = raw_value.substr(STRING_HDR_SIZE, raw_value.size()-STRING_HDR_SIZE);
   int64_t n = 0;
-  std::size_t idx = 0;
   if (!value.empty()) {
-    try {
-      n = std::stoll(value, &idx);
-    } catch(std::exception &e) {
+    auto s = Util::Strtoll(value, n);
+    if (!s.IsOK()) {
       return rocksdb::Status::InvalidArgument("value is not an integer or out of range");
     }
-    if (isspace(value[0]) || idx != value.size()) {
+    if (isspace(value[0])) {
       return rocksdb::Status::InvalidArgument("value is not an integer");
     }
   }
@@ -297,14 +295,9 @@ rocksdb::Status String::IncrByFloat(const std::string &user_key, double incremen
   }
   value = raw_value.substr(STRING_HDR_SIZE, raw_value.size()-STRING_HDR_SIZE);
   double n = 0;
-  std::size_t idx;
   if (!value.empty()) {
-    try {
-      n = std::stod(value, &idx);
-    } catch(std::exception &e) {
-      return rocksdb::Status::InvalidArgument("value is not an float");
-    }
-    if (isspace(value[0]) || idx != value.size()) {
+    auto s = Util::Strtod(value, n);
+    if (!s.IsOK()) {
       return rocksdb::Status::InvalidArgument("value is not an float");
     }
   }

@@ -314,12 +314,14 @@ class CommandGetSet : public Commander {
 class CommandGetRange: public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      start_ = std::stoi(args[2]);
-      stop_ = std::stoi(args[3]);
-    } catch (std::exception &e) {
+    long long start = 0, stop = 0;
+    auto s1 = Util::Strtoll(args[2], start);
+    auto s2 = Util::Strtoll(args[3], stop);
+    if (!s1.IsOK() || !s2.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    start_ = start;
+    stop_ = stop;
     return Commander::Parse(args);
   }
 
@@ -353,11 +355,12 @@ class CommandGetRange: public Commander {
 class CommandSetRange: public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      offset_ = std::stoi(args[2]);
-    } catch (std::exception &e) {
+    long long offset = 0;
+    auto s = Util::Strtoll(args[2], offset);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    offset_ = offset;
     return Commander::Parse(args);
   }
 
@@ -420,27 +423,19 @@ class CommandSet : public Commander {
       } else if (opt == "xx" && !nx_) {
         xx_ = true;
       } else if (opt == "ex" && !ttl_ && !last_arg) {
-        try {
-          std::string s = args_[++i];
-          std::string::size_type sz;
-          ttl_ = std::stoi(s, &sz);
-          if (sz != s.size()) {
-            return Status(Status::RedisParseErr, errValueNotInterger);
-          }
-        } catch (std::exception &e) {
+        std::string s = args_[++i];
+        long long ttl = 0;
+        auto sts = Util::Strtoll(s, ttl);
+        if (!sts.IsOK()) {
           return Status(Status::RedisParseErr, errValueNotInterger);
         }
+        ttl_ = ttl;
         if (ttl_ <= 0) return Status(Status::RedisParseErr, errInvalidExpireTime);
       } else if (opt == "px" && !ttl_ && !last_arg) {
         int64_t ttl_ms = 0;
-        try {
-          std::string s = args_[++i];
-          std::string::size_type sz;
-          ttl_ms = std::stol(s, &sz);
-          if (sz != s.size()) {
-            return Status(Status::RedisParseErr, errValueNotInterger);
-          }
-        } catch (std::exception &e) {
+        std::string s = args_[++i];
+        auto sts = Util::Strtoll(s, ttl_ms);
+        if (!sts.IsOK()) {
           return Status(Status::RedisParseErr, errValueNotInterger);
         }
         if (ttl_ms <= 0) return Status(Status::RedisParseErr, errInvalidExpireTime);
@@ -486,11 +481,12 @@ class CommandSet : public Commander {
 class CommandSetEX : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      ttl_ = std::stoi(args[2]);
-    } catch (std::exception &e) {
+    long long ttl = 0;
+    auto s = Util::Strtoll(args[2], ttl);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    ttl_ = ttl;
     if (ttl_ <= 0) return Status(Status::RedisParseErr, errInvalidExpireTime);
     return Commander::Parse(args);
   }
@@ -509,16 +505,16 @@ class CommandSetEX : public Commander {
 class CommandPSetEX : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      auto ttl_ms = std::stol(args[2]);
-      if (ttl_ms <= 0) return Status(Status::RedisParseErr, errInvalidExpireTime);
-      if (ttl_ms > 0 && ttl_ms < 1000) {
-        ttl_ = 1;
-      } else {
-        ttl_ = ttl_ms / 1000;
-      }
-    } catch (std::exception &e) {
+    long long ttl_ms;
+    auto s = Util::Strtoll(args[2], ttl_ms);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
+    }
+    if (ttl_ms <= 0) return Status(Status::RedisParseErr, errInvalidExpireTime);
+    if (ttl_ms > 0 && ttl_ms < 1000) {
+      ttl_ = 1;
+    } else {
+      ttl_ = ttl_ms / 1000;
     }
     return Commander::Parse(args);
   }
@@ -626,9 +622,8 @@ class CommandDecr : public Commander {
 class CommandIncrBy : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      increment_ = std::stoll(args[2]);
-    } catch (std::exception &e) {
+    auto s = Util::Strtoll(args[2], increment_);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
     return Commander::Parse(args);
@@ -643,16 +638,15 @@ class CommandIncrBy : public Commander {
     return Status::OK();
   }
 
- private:
+private:
   int64_t increment_ = 0;
 };
 
 class CommandIncrByFloat : public Commander {
- public:
+public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      increment_ = std::stod(args[2]);
-    } catch (std::exception &e) {
+    auto s = Util::Strtod(args[2], increment_);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
     return Commander::Parse(args);
@@ -674,9 +668,8 @@ class CommandIncrByFloat : public Commander {
 class CommandDecrBy : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      increment_ = std::stoll(args[2]);
-    } catch (std::exception &e) {
+    auto s = Util::Strtoll(args[2], increment_);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
     return Commander::Parse(args);
@@ -770,9 +763,8 @@ class CommandDel : public Commander {
 
 Status getBitOffsetFromArgument(std::string arg, uint32_t *offset) {
   int64_t offset_arg = 0;
-  try {
-    offset_arg = std::stoll(arg);
-  } catch (std::exception &e) {
+  auto s = Util::Strtoll(arg, offset_arg);
+  if (!s.IsOK()) {
     return Status(Status::RedisParseErr, errValueNotInterger);
   }
   if (offset_arg < 0 || offset_arg > UINT_MAX) {
@@ -1025,15 +1017,16 @@ class CommandExpire : public Commander {
   Status Parse(const std::vector<std::string> &args) override {
     int64_t now;
     rocksdb::Env::Default()->GetCurrentTime(&now);
-    try {
-      seconds_ = std::stoi(args[2]);
-      if (seconds_ >= INT32_MAX - now) {
-        return Status(Status::RedisParseErr, "the expire time was overflow");
-      }
-      seconds_ += now;
-    } catch (std::exception &e) {
+    long long secs = 0;
+    auto s = Util::Strtoll(args[2], secs);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    seconds_ = secs;
+    if (seconds_ >= INT32_MAX - now) {
+      return Status(Status::RedisParseErr, "the expire time was overflow");
+    }
+    seconds_ += now;
     return Commander::Parse(args);
   }
 
@@ -1057,20 +1050,20 @@ class CommandPExpire : public Commander {
   Status Parse(const std::vector<std::string> &args) override {
     int64_t now;
     rocksdb::Env::Default()->GetCurrentTime(&now);
-    try {
-      auto ttl_ms = std::stol(args[2]);
-      if (ttl_ms > 0 && ttl_ms < 1000) {
-        seconds_ = 1;
-      } else {
-        seconds_ = ttl_ms / 1000;
-        if (seconds_ >= INT32_MAX - now) {
-          return Status(Status::RedisParseErr, "the expire time was overflow");
-        }
-      }
-      seconds_ += now;
-    } catch (std::exception &e) {
+    long long ttl_ms = 0;
+    auto s = Util::Strtoll(args[2], ttl_ms);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    if (ttl_ms > 0 && ttl_ms < 1000) {
+      seconds_ = 1;
+    } else {
+      seconds_ = ttl_ms / 1000;
+      if (seconds_ >= INT32_MAX - now) {
+        return Status(Status::RedisParseErr, "the expire time was overflow");
+      }
+    }
+    seconds_ += now;
     return Commander::Parse(args);
   }
 
@@ -1092,13 +1085,14 @@ class CommandPExpire : public Commander {
 class CommandExpireAt : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      timestamp_ = std::stoi(args[2]);
-      if (timestamp_ >= INT32_MAX) {
-        return Status(Status::RedisParseErr, "the expire time was overflow");
-      }
-    } catch (std::exception &e) {
+    long long ts = 0;
+    auto s = Util::Strtoll(args[2], ts);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
+    }
+    timestamp_ = ts;
+    if (timestamp_ >= INT32_MAX) {
+      return Status(Status::RedisParseErr, "the expire time was overflow");
     }
     return Commander::Parse(args);
   }
@@ -1120,13 +1114,14 @@ class CommandExpireAt : public Commander {
 class CommandPExpireAt : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      timestamp_ = static_cast<int>(std::stol(args[2])/1000);
-      if (timestamp_ >= INT32_MAX) {
-        return Status(Status::RedisParseErr, "the expire time was overflow");
-      }
-    } catch (std::exception &e) {
+    long long ts = 0;
+    auto s = Util::Strtoll(args[2], ts);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
+    }
+    timestamp_ = static_cast<int>(ts/1000);
+    if (timestamp_ >= INT32_MAX) {
+      return Status(Status::RedisParseErr, "the expire time was overflow");
     }
     return Commander::Parse(args);
   }
@@ -1256,9 +1251,8 @@ class CommandHLen : public Commander {
 class CommandHIncrBy : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      increment_ = std::stoll(args[3]);
-    } catch (std::exception &e) {
+    auto s = Util::Strtoll(args[3], increment_);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
     return Commander::Parse(args);
@@ -1281,9 +1275,8 @@ class CommandHIncrBy : public Commander {
 class CommandHIncrByFloat : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      increment_ = std::stod(args[3]);
-    } catch (std::exception &e) {
+    auto s = Util::Strtod(args[3], increment_);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
     return Commander::Parse(args);
@@ -1470,16 +1463,16 @@ class CommandPop : public Commander {
     if (args.size() == 2) {
       return Status::OK();
     }
-    try {
-      int32_t v = std::stol(args[2]);
-      if (v < 0) {
-        return Status(Status::RedisParseErr, errValueMustBePositive);
-      }
-      count_ = v;
-      with_count_ = true;
-    } catch (const std::exception& ) {
+    int64_t v = 0;
+    auto s = Util::Strtoll(args[2], v);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    if (v < 0) {
+      return Status(Status::RedisParseErr, errValueMustBePositive);
+    }
+    count_ = v;
+    with_count_ = true;
     return Status::OK();
   }
 
@@ -1673,12 +1666,12 @@ class CommandBRPop : public CommandBPop {
 class CommandLRem : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      count_ = std::stoi(args[2]);
-    } catch (std::exception &e) {
+    long long cnt = 0;
+    auto s = Util::Strtoll(args[2], cnt);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
-
+    count_ = cnt;
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
@@ -1726,12 +1719,14 @@ class CommandLInsert : public Commander {
 class CommandLRange : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      start_ = std::stoi(args[2]);
-      stop_ = std::stoi(args[3]);
-    } catch (std::exception &e) {
+    long long start = 0, stop = 0;
+    auto s1 = Util::Strtoll(args[2], start);
+    auto s2 = Util::Strtoll(args[3], stop);
+    if (!s1.IsOK() || !s2.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    start_ = start;
+    stop_ = stop;
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
@@ -1766,11 +1761,12 @@ class CommandLLen : public Commander {
 class CommandLIndex : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      index_ = std::stoi(args[2]);
-    } catch (std::exception &e) {
+    long long idx = 0;
+    auto s = Util::Strtoll(args[2], idx);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    index_ = idx;
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
@@ -1795,11 +1791,12 @@ class CommandLIndex : public Commander {
 class CommandLSet : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      index_ = std::stoi(args[2]);
-    } catch (std::exception &e) {
+    long long idx = 0;
+    auto s = Util::Strtoll(args[2], idx);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    index_ = idx;
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
@@ -1819,12 +1816,14 @@ class CommandLSet : public Commander {
 class CommandLTrim : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      start_ = std::stoi(args[2]);
-      stop_ = std::stoi(args[3]);
-    } catch (std::exception &e) {
+    long long start = 0, stop = 0;
+    auto s1 = Util::Strtoll(args[2], start);
+    auto s2 = Util::Strtoll(args[3], stop);
+    if (!s1.IsOK() || !s2.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    start_ = start;
+    start_ = stop;
     return Commander::Parse(args);
   }
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
@@ -1968,13 +1967,14 @@ class CommandSIsMember : public Commander {
 class CommandSPop : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      if (args.size() == 3) {
-        count_ = std::stoi(args[2]);
-        with_count_ = true;
+    if (args.size() == 3) {
+      long long cnt = 0;
+      auto s = Util::Strtoll(args[2], cnt);
+      if (!s.IsOK()) {
+        return Status(Status::RedisParseErr, errValueNotInterger);
       }
-    } catch (std::exception &e) {
-      return Status(Status::RedisParseErr, errValueNotInterger);
+      count_ = cnt;
+      with_count_ = true;
     }
     return Commander::Parse(args);
   }
@@ -2005,12 +2005,13 @@ class CommandSPop : public Commander {
 class CommandSRandMember : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      if (args.size() == 3) {
-        count_ = std::stoi(args[2]);
+    if (args.size() == 3) {
+      long long cnt = 0;
+      auto s = Util::Strtoll(args[2], cnt);
+      if (!s.IsOK()) {
+        return Status(Status::RedisParseErr, errValueNotInterger);
       }
-    } catch (std::exception &e) {
-      return Status(Status::RedisParseErr, errValueNotInterger);
+      count_ = cnt;
     }
     return Commander::Parse(args);
   }
@@ -2158,16 +2159,16 @@ class CommandZAdd : public Commander {
       return Status(Status::RedisParseErr, errInvalidSyntax);
     }
 
-    try {
-      for (unsigned i = 2; i < args.size(); i += 2) {
-        double score = std::stod(args[i]);
-        if (std::isnan(score)) {
-          return Status(Status::RedisParseErr, "ERR score is not a valid float");
-        }
-        member_scores_.emplace_back(MemberScore{args[i + 1], score});
+    for (unsigned i = 2; i < args.size(); i += 2) {
+      double score = 0.0L;
+      auto s = Util::Strtod(args[i], score);
+      if (!s.IsOK()) {
+        return Status(Status::RedisParseErr, "ERR value is not a valid float");
       }
-    } catch (const std::exception &e) {
-      return Status(Status::RedisParseErr, "ERR value is not a valid float");
+      if (std::isnan(score)) {
+        return Status(Status::RedisParseErr, "ERR score is not a valid float");
+      }
+      member_scores_.emplace_back(MemberScore{args[i + 1], score});
     }
     return Commander::Parse(args);
   }
@@ -2231,9 +2232,8 @@ class CommandZCard : public Commander {
 class CommandZIncrBy : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      incr_ = std::stod(args[2]);
-    } catch (const std::exception &e) {
+    auto s = Util::Strtod(args[2], incr_);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, "value is not an double or out of range");
     }
     return Commander::Parse(args);
@@ -2286,11 +2286,12 @@ class CommandZPop : public Commander {
 
   Status Parse(const std::vector<std::string> &args) override {
     if (args.size() > 2) {
-      try {
-        count_ = std::stoi(args[2]);
-      } catch (const std::exception &e) {
+      long long cnt = 0;
+      auto s = Util::Strtoll(args[2], cnt);
+      if (!s.IsOK()) {
         return Status(Status::RedisParseErr, errValueNotInterger);
       }
+      count_ = cnt;
     }
     return Commander::Parse(args);
   }
@@ -2329,12 +2330,14 @@ class CommandZRange : public Commander {
  public:
   explicit CommandZRange(bool reversed = false) { reversed_ = reversed; }
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      start_ = std::stoi(args[2]);
-      stop_ = std::stoi(args[3]);
-    } catch (const std::exception &e) {
+    long long start = 0, stop = 0;
+    auto s1 = Util::Strtoll(args[2], start);
+    auto s2 = Util::Strtoll(args[3], stop);
+    if (!s1.IsOK() || !s2.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    start_ = start;
+    stop_ = stop;
     if (args.size() > 4 && (Util::ToLower(args[4]) == "withscores")) {
       with_scores_ = true;
     }
@@ -2390,13 +2393,15 @@ class CommandZRangeByLex : public Commander {
     if (!s.IsOK()) {
       return Status(Status::RedisParseErr, s.Msg());
     }
-    try {
-      if (args.size() == 7 && Util::ToLower(args[4]) == "limit") {
-        spec_.offset = std::stoi(args[5]);
-        spec_.count = std::stoi(args[6]);
+    if (args.size() == 7 && Util::ToLower(args[4]) == "limit") {
+      long long sp_off = 0, sp_cnt = 0;
+      auto s1 = Util::Strtoll(args[5], sp_off);
+      auto s2 = Util::Strtoll(args[6], sp_cnt);
+      if (!s1.IsOK() || !s2.IsOK()) {
+        return Status(Status::RedisParseErr, errValueNotInterger);
       }
-    } catch (const std::exception &e) {
-      return Status(Status::RedisParseErr, errValueNotInterger);
+      spec_.offset = sp_off;
+      spec_.count = sp_cnt;
     }
     return Commander::Parse(args);
   }
@@ -2432,22 +2437,24 @@ class CommandZRangeByScore : public Commander {
     if (!s.IsOK()) {
       return Status(Status::RedisParseErr, s.Msg());
     }
-    try {
-      size_t i = 4;
-      while (i < args.size()) {
-        if (Util::ToLower(args[i]) == "withscores") {
-          with_scores_ = true;
-          i++;
-        } else if (Util::ToLower(args[i]) == "limit" && i + 2 < args.size()) {
-          spec_.offset = std::stoi(args[i + 1]);
-          spec_.count = std::stoi(args[i + 2]);
-          i += 3;
-        } else {
-          return Status(Status::RedisParseErr, errInvalidSyntax);
+    size_t i = 4;
+    while (i < args.size()) {
+      if (Util::ToLower(args[i]) == "withscores") {
+        with_scores_ = true;
+        i++;
+      } else if (Util::ToLower(args[i]) == "limit" && i + 2 < args.size()) {
+        long long sp_off = 0, sp_cnt = 0;
+        auto s1 = Util::Strtoll(args[i + 1], sp_off);
+        auto s2 = Util::Strtoll(args[i + 2], sp_cnt);
+        if (!s1.IsOK() || !s2.IsOK()) {
+          return Status(Status::RedisParseErr, errValueNotInterger);
         }
+        spec_.offset = sp_off;
+        spec_.count = sp_cnt;
+        i += 3;
+      } else {
+        return Status(Status::RedisParseErr, errInvalidSyntax);
       }
-    } catch (const std::exception &e) {
-      return Status(Status::RedisParseErr, errValueNotInterger);
     }
     return Commander::Parse(args);
   }
@@ -2538,12 +2545,14 @@ class CommandZRem : public Commander {
 class CommandZRemRangeByRank : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      start_ = std::stoi(args[2]);
-      stop_ = std::stoi(args[3]);
-    } catch (const std::exception &e) {
+    long long start = 0, stop = 0;
+    auto s1 = Util::Strtoll(args[2], start);
+    auto s2 = Util::Strtoll(args[3], stop);
+    if (!s1.IsOK() || !s2.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    start_ = start;
+    stop_ = stop;
     return Commander::Parse(args);
   }
 
@@ -2667,11 +2676,12 @@ class CommandZMScore : public Commander {
 class CommandZUnionStore : public Commander {
  public:
   Status Parse(const std::vector<std::string> &args) override {
-    try {
-      numkeys_ = std::stoi(args[2]);
-    } catch (const std::exception &e) {
+    long long numkeys = 0;
+    auto s = Util::Strtoll(args[2], numkeys);
+    if (!s.IsOK()) {
       return Status(Status::RedisParseErr, errValueNotInterger);
     }
+    numkeys_ = numkeys;
     if (numkeys_ > args.size() - 3) {
       return Status(Status::RedisParseErr, errInvalidSyntax);
     }
@@ -2696,9 +2706,8 @@ class CommandZUnionStore : public Commander {
       } else if (Util::ToLower(args[i]) == "weights" && i + numkeys_ < args.size()) {
         size_t j = 0;
         while (j < numkeys_) {
-          try {
-            keys_weights_[j].weight = std::stod(args[i + j + 1]);
-          } catch (const std::exception &e) {
+          auto s = Util::Strtod(args[i + j + 1], keys_weights_[j].weight);
+          if (!s.IsOK()) {
             return Status(Status::RedisParseErr, "weight is not an double or out of range");
           }
           if (std::isnan(keys_weights_[j].weight)) {
@@ -4086,11 +4095,12 @@ class CommandScanBase : public Commander {
       }
       return Status(Status::RedisParseErr, "only keys prefix match was supported");
     } else if (type == "count") {
-      try {
-        limit = std::stoi(value);
-      } catch (const std::exception &e) {
+      long long lim = 0;
+      auto s = Util::Strtoll(value, lim);
+      if (!s.IsOK()) {
         return Status(Status::RedisParseErr, "ERR count param should be type int");
       }
+      limit = lim;
       if (limit <= 0) {
         return Status(Status::RedisParseErr, errInvalidSyntax);
       }
