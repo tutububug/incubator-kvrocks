@@ -119,6 +119,7 @@ bool InternalKey::operator==(const InternalKey &that) const {
 rocksdb::Status extractNamespaceKeyPrefix(const std::string& ns_key, size_t& off,
                                           int64_t& table_id, std::string *key,
                                           bool slot_id_encoded, int64_t& slot_id) {
+  off++; // TODO to drop hard code, skip the char 'z'
   auto s = Redis::DecodeInt(ns_key, off, table_id); // decode table id
   if (!s.IsOK()) {
     return rocksdb::Status::IOError(s.Msg());
@@ -174,6 +175,7 @@ rocksdb::Status ExtractNamespaceKey(const Slice& nsk, int64_t& table_id, std::st
 
 void ComposeNamespaceKey(int64_t table_id, const Slice& key, std::string *ns_key, bool slot_id_encoded, int64_t cf_code) {
     ns_key->clear();
+    ns_key->append("z"); // TODO to drop hard code
 
     Redis::EncodeInt(ns_key, table_id); // encode table id
     auto key_str = key.ToString();
