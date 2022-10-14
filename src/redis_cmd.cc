@@ -1140,7 +1140,6 @@ class CommandPExpireAt : public Commander {
   int timestamp_ = 0;
 };
 
-#if 0
 class CommandPersist : public Commander {
  public:
   Status Execute(int64_t table_id, std::string *output, rocksdb::WriteBatch *batch, Redis::Storage *storage) override {
@@ -1158,7 +1157,6 @@ class CommandPersist : public Commander {
     return Status::OK();
   }
 };
-#endif
 
 class CommandHGet : public Commander {
  public:
@@ -4780,7 +4778,7 @@ CommandAttributes redisCommandTable[] = {
     ADD_CMD("type", 2, "read-only", 1, 1, 1, CommandType),
 //    ADD_CMD("object", 3, "read-only", 2, 2, 1, CommandObject),
     ADD_CMD("exists", -2, "read-only", 1, -1, 1, CommandExists),
-//    ADD_CMD("persist", 2, "write", 1, 1, 1, CommandPersist),
+    ADD_CMD("persist", 2, "write", 1, 1, 1, CommandPersist),
     ADD_CMD("expire", 3, "write", 1, 1, 1, CommandExpire),
     ADD_CMD("pexpire", 3, "write", 1, 1, 1, CommandPExpire),
     ADD_CMD("expireat", 3, "write", 1, 1, 1, CommandExpireAt),

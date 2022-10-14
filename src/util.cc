@@ -696,7 +696,7 @@ Status Strtod(const std::string& str, double& out) {
     return Status(Status::NotOK, std::string("number out of range: ").append(strerror(errno)));
   }
   if (*end != '\0') {
-    return Status(Status::NotOK, "not a float number");
+    return Status(Status::NotOK, "not a double number");
   }
   return Status::OK();
 }
