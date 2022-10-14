@@ -673,6 +673,7 @@ uint64_t GetTimeStampUS(void) {
 
 Status Strtoll(const std::string& str, long long& out, int base) {
   char* end = nullptr;
+  errno = 0;
   out = strtoll(str.c_str(), &end, base);
   if (out == 0) {
     if (errno == EINVAL) {
@@ -691,6 +692,7 @@ Status Strtoll(const std::string& str, long long& out, int base) {
 
 Status Strtod(const std::string& str, double& out) {
   char* end = nullptr;
+  errno = 0;
   out = strtod(str.c_str(), &end);
   if (errno == ERANGE) {
     return Status(Status::NotOK, std::string("number out of range: ").append(strerror(errno)));
