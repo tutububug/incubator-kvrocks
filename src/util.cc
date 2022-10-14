@@ -695,7 +695,7 @@ Status Strtod(const std::string& str, double& out) {
   if (errno == ERANGE) {
     return Status(Status::NotOK, std::string("number out of range: ").append(strerror(errno)));
   }
-  if (*end != '\0') {
+  if (isnan(out) || *end != '\0') {
     return Status(Status::NotOK, "not a double number");
   }
   return Status::OK();

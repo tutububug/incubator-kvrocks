@@ -2163,9 +2163,6 @@ class CommandZAdd : public Commander {
       if (!s.IsOK()) {
         return Status(Status::RedisParseErr, "ERR value is not a valid float");
       }
-      if (std::isnan(score)) {
-        return Status(Status::RedisParseErr, "ERR score is not a valid float");
-      }
       member_scores_.emplace_back(MemberScore{args[i + 1], score});
     }
     return Commander::Parse(args);
@@ -2706,9 +2703,6 @@ class CommandZUnionStore : public Commander {
         while (j < numkeys_) {
           auto s = Util::Strtod(args[i + j + 1], keys_weights_[j].weight);
           if (!s.IsOK()) {
-            return Status(Status::RedisParseErr, "weight is not an double or out of range");
-          }
-          if (std::isnan(keys_weights_[j].weight)) {
             return Status(Status::RedisParseErr, "weight is not an double or out of range");
           }
           j++;

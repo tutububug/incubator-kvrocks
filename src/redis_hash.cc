@@ -130,7 +130,7 @@ rocksdb::Status Hash::IncrByFloat(const Slice &user_key, const Slice &field, dou
     s = db_->Get(rocksdb::ReadOptions(), sub_key, &value_bytes);
     if (!s.ok() && !s.IsNotFound()) return s;
     if (s.ok()) {
-      auto sts = Util::Strtod(value_bytes, reinterpret_cast<double &>(old_value));
+      auto sts = Util::Strtod(value_bytes, old_value);
       if (!sts.IsOK()) {
         return rocksdb::Status::InvalidArgument(sts.Msg());
       }
