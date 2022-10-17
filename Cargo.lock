@@ -138,7 +138,7 @@ dependencies = [
  "bindgen",
  "cc",
  "cmake",
- "librocksdb_sys",
+ "rocksdb",
 ]
 
 [[package]]
@@ -286,6 +286,15 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "librockdis_sys",
+]
+
+[[package]]
+name = "rocksdb"
+version = "0.3.0"
+source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-5.2#23bd00d50c79b40b6a32c11446c86f0714fa7844"
+dependencies = [
+ "libc",
+ "librocksdb_sys",
 ]
 
 [[package]]

@@ -4259,6 +4259,17 @@ extern "C" {
         key_len: size_t,
     ) -> size_t;
 }
+extern "C" {
+    pub fn redis_key_is_expired(
+        p: *mut redis_processor_t,
+        key_cstr: *const ::std::os::raw::c_char,
+        key_len: size_t,
+        val_cstr: *const ::std::os::raw::c_char,
+        val_len: size_t,
+        err_msg: *mut *mut ::std::os::raw::c_char,
+        err_len: *mut size_t,
+    ) -> ::std::os::raw::c_int;
+}
 pub type __builtin_va_list = [__va_list_tag; 1usize];
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

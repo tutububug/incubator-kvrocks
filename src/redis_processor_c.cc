@@ -63,3 +63,19 @@ size_t get_redis_key_prefix_length(const char* key_cstr, size_t key_len) {
   CalculateNamespaceKeyPrefixLength(key, off);
   return off;
 }
+
+int redis_key_is_expired(redis_processor_t* p,
+                          const char* key_cstr, size_t key_len,
+                          const char* val_cstr, size_t val_len,
+                          char** err_msg, size_t* err_len) {
+  bool expired = false;
+  auto s = p->p->Expired(expired,
+                         rocksdb::Slice(key_cstr, key_len),
+                         rocksdb::Slice(val_cstr, val_len));
+  if (!s.ok()) {
+    auto s_str = s.ToString();
+    *err_msg = const_cast<char*>(s_str.c_str());
+    *err_len = s_str.size();
+  }
+  return expired;
+}

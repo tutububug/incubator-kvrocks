@@ -1,7 +1,14 @@
 #include <sstream>
 #include "redis_processor.h"
+#include "redis_metadata.h"
 
 namespace Redis {
+
+using rocksdb::Slice;
+//extern rocksdb::Status extractNamespaceKey(const std::string& ns_key, size_t& off,
+//                                           int64_t& table_id, std::string *key,
+//                                           bool slot_id_encoded, int64_t& slot_id,
+//                                           int64_t& cf_code);
 
 std::once_flag once_flag;
 Processor::Processor(Storage* s): storage_(s) {
@@ -87,6 +94,94 @@ Status Processor::checkCommandArgs(const Redis::CommandTokens& cmd_tokens, const
     return Status(Status::RedisInvalidCmd, "ERR wrong number of arguments");
   }
   return Status::OK();
+}
+
+rocksdb::Status Processor::getCfCode(const std::string& key, int64_t& cf_code) {
+  size_t off = 0;
+  int64_t table_id = 0;
+  std::string user_key;
+  int64_t slot_id = 0;
+  return extractNamespaceKey(key, off, table_id, &user_key, storage_->IsSlotIdEncoded(), slot_id, cf_code);
+}
+
+bool Processor::isMetaKey(const std::string& key) {
+  int64_t cf_code = 0;
+  auto s = getCfCode(key, cf_code);
+  if (!s.ok()) {
+    return false;
+  }
+  return cf_code == kColumnFamilyIDMetadata;
+}
+
+bool Processor::isSubKey(const std::string& key) {
+  int64_t cf_code = 0;
+  auto s = getCfCode(key, cf_code);
+  if (!s.ok()) {
+    return false;
+  }
+  return cf_code == kColumnFamilyIDData ||
+  cf_code == kColumnFamilyIDZSetScore;
+}
+
+rocksdb::Status Processor::metadataFilter(bool& filtered, const Slice &key, const Slice &value) {
+  filtered = false;
+
+  std::string ns, user_key, bytes = value.ToString();
+  Metadata metadata(kRedisNone, false);
+  rocksdb::Status s = metadata.Decode(bytes);
+  if (!s.ok()) {
+    return s;
+  }
+  int64_t table_id = 0;
+  s = ExtractNamespaceKey(key, table_id, &user_key, storage_->IsSlotIdEncoded());
+  if (!s.ok()) {
+    return s;
+  }
+  filtered = metadata.Expired();
+  return rocksdb::Status::OK();
+}
+
+rocksdb::Status Processor::subKeyFilter(bool& filtered, const Slice &key, const Slice &value) {
+  filtered = false;
+
+  InternalKey ikey;
+  auto s = ikey.Init(key, storage_->IsSlotIdEncoded());
+  if (!s.ok()) {
+    return s;
+  }
+  std::string metadata_key;
+  int64_t cf_code = 0;
+  auto db = storage_->GetDB();
+  ComposeNamespaceKey(ikey.GetNamespace(), ikey.GetKey(), &metadata_key, storage_->IsSlotIdEncoded(), cf_code);
+  std::string meta_value;
+  s = db->Get(rocksdb::ReadOptions(), metadata_key, &meta_value);
+  if (!s.ok()) {
+    return s;
+  }
+  Metadata metadata(kRedisNone, false);
+  s = metadata.Decode(meta_value);
+  if (!s.ok()) {
+    return s;
+  }
+  if (metadata.Type() == kRedisString  // metadata key was overwrite by set command
+      || metadata.Expired()
+      || ikey.GetVersion() != metadata.version) {
+    filtered = true;
+  }
+  return rocksdb::Status::OK();
+}
+
+rocksdb::Status Processor::Expired(bool& filtered, const Slice &key, const Slice &value) {
+  rocksdb::Status s;
+  auto k = key.ToString();
+  if (isMetaKey(k)) {
+    s = metadataFilter(filtered, key, value);
+  } else if (isSubKey(k)) {
+    s = subKeyFilter(filtered, key, value);
+  } else {
+    s = rocksdb::Status::IOError("unknown cfcode");
+  }
+  return s;
 }
 
 } // namespace redis

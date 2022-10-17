@@ -37,11 +37,6 @@ static std::atomic<uint64_t> version_counter_ = {0};
 const char* kErrMsgWrongType = "WRONGTYPE Operation against a key holding the wrong kind of value";
 const char* kErrMsgKeyExpired = "the key was expired";
 
-rocksdb::Status extractNamespaceKey(const std::string& ns_key, size_t& off,
-                                    int64_t& table_id, std::string *key,
-                                    bool slot_id_encoded, int64_t& slot_id,
-                                    int64_t& cf_code);
-
 rocksdb::Status InternalKey::Init(Slice input, bool slot_id_encoded) {
   slot_id_encoded_ = slot_id_encoded;
 

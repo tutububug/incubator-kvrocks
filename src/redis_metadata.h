@@ -82,6 +82,11 @@ void ComposeNamespaceKey(int64_t table_id, const Slice& key, std::string *ns_key
 void ComposeSlotKeyPrefix(int64_t table_id, int slotid, std::string *output);
 rocksdb::Status CalculateNamespaceKeyPrefixLength(const std::string& key, size_t& off);
 
+rocksdb::Status extractNamespaceKey(const std::string& ns_key, size_t& off,
+                                    int64_t& table_id, std::string *key,
+                                    bool slot_id_encoded, int64_t& slot_id,
+                                    int64_t& cf_code);
+
 class InternalKey {
  public:
   InternalKey() = default;

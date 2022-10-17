@@ -29,6 +29,12 @@ free_redis_processor_handle_result(redis_processor_handle_result_t* res);
 size_t
 get_redis_key_prefix_length(const char* key_cstr, size_t key_len);
 
+int
+redis_key_is_expired(redis_processor_t* p,
+                     const char* key_cstr, size_t key_len,
+                     const char* val_cstr, size_t val_len,
+                     char** err_msg, size_t* err_len);
+
 #ifdef __cplusplus
 }
 #endif
