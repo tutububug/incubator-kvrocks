@@ -5,10 +5,8 @@
 namespace Redis {
 
 using rocksdb::Slice;
-//extern rocksdb::Status extractNamespaceKey(const std::string& ns_key, size_t& off,
-//                                           int64_t& table_id, std::string *key,
-//                                           bool slot_id_encoded, int64_t& slot_id,
-//                                           int64_t& cf_code);
+
+thread_local Processor::ExpireCache Processor::expire_cache;
 
 std::once_flag once_flag;
 Processor::Processor(Storage* s): storage_(s) {
@@ -138,6 +136,9 @@ rocksdb::Status Processor::metadataFilter(bool& filtered, const Slice &key, cons
     return s;
   }
   filtered = metadata.Expired();
+
+  Processor::expire_cache.key = key.ToString();
+  Processor::expire_cache.data = bytes;
   return rocksdb::Status::OK();
 }
 
@@ -153,13 +154,30 @@ rocksdb::Status Processor::subKeyFilter(bool& filtered, const Slice &key, const 
   int64_t cf_code = 0;
   auto db = storage_->GetDB();
   ComposeNamespaceKey(ikey.GetNamespace(), ikey.GetKey(), &metadata_key, storage_->IsSlotIdEncoded(), cf_code);
-  std::string meta_value;
-  s = db->Get(rocksdb::ReadOptions(), metadata_key, &meta_value);
-  if (!s.ok()) {
-    return s;
+
+  auto cached_key = &Processor::expire_cache.key;
+  auto cached_metadata = &Processor::expire_cache.data;
+  if (cached_key->empty() || metadata_key != *cached_key) {
+    std::string meta_value;
+    s = db->Get(rocksdb::ReadOptions(), metadata_key, &meta_value);
+    *cached_key = std::move(metadata_key);
+    if (s.ok()) {
+      *cached_metadata = std::move(meta_value);
+    } else if (s.IsNotFound()) {
+      cached_metadata->clear();
+    } else {
+      cached_key->clear();
+      cached_metadata->clear();
+    }
   }
+  // the metadata was not found
+  if (cached_metadata->empty()) {
+    filtered = true;
+    return rocksdb::Status::OK();
+  }
+
   Metadata metadata(kRedisNone, false);
-  s = metadata.Decode(meta_value);
+  s = metadata.Decode(*cached_metadata);
   if (!s.ok()) {
     return s;
   }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <thread>
 #include <rocksdb/db.h>
 #include <rocksdb/c.h>
 #include "store.h"
@@ -33,6 +34,13 @@ private:
 
 private:
   Storage* storage_;
+
+public:
+  struct ExpireCache {
+    std::string key;
+    std::string data;
+  };
+  static thread_local ExpireCache expire_cache;
 };
 
 } // namespace Redis
