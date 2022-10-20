@@ -1973,6 +1973,8 @@ class CommandSPop : public Commander {
       }
       count_ = cnt;
       with_count_ = true;
+    } else if (args.size() > 3) {
+      return Status(Status::RedisParseErr, errWrongNumOfArguments);
     }
     return Commander::Parse(args);
   }
@@ -2010,6 +2012,8 @@ class CommandSRandMember : public Commander {
         return Status(Status::RedisParseErr, errValueNotInterger);
       }
       count_ = cnt;
+    } else if (args.size() > 3) {
+      return Status(Status::RedisParseErr, errWrongNumOfArguments);
     }
     return Commander::Parse(args);
   }
