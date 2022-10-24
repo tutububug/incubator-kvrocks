@@ -4395,6 +4395,78 @@ extern "C" {
 extern "C" {
     pub fn free_redis_get_expire_ts_result(res: redis_get_expire_ts_result_t);
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct redis_cmd_attr_is_write_result_t {
+    pub err_msg: *mut ::std::os::raw::c_char,
+    pub err_len: size_t,
+    pub is_write: ::std::os::raw::c_int,
+}
+#[test]
+fn bindgen_test_layout_redis_cmd_attr_is_write_result_t() {
+    assert_eq!(
+        ::std::mem::size_of::<redis_cmd_attr_is_write_result_t>(),
+        24usize,
+        concat!("Size of: ", stringify!(redis_cmd_attr_is_write_result_t))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<redis_cmd_attr_is_write_result_t>(),
+        8usize,
+        concat!(
+            "Alignment of ",
+            stringify!(redis_cmd_attr_is_write_result_t)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<redis_cmd_attr_is_write_result_t>())).err_msg as *const _
+                as usize
+        },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(redis_cmd_attr_is_write_result_t),
+            "::",
+            stringify!(err_msg)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<redis_cmd_attr_is_write_result_t>())).err_len as *const _
+                as usize
+        },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(redis_cmd_attr_is_write_result_t),
+            "::",
+            stringify!(err_len)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<redis_cmd_attr_is_write_result_t>())).is_write as *const _
+                as usize
+        },
+        16usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(redis_cmd_attr_is_write_result_t),
+            "::",
+            stringify!(is_write)
+        )
+    );
+}
+extern "C" {
+    pub fn redis_cmd_attr_is_write(
+        p: *mut redis_processor_t,
+        cmd_cstr: *const ::std::os::raw::c_char,
+        cmd_len: size_t,
+    ) -> redis_cmd_attr_is_write_result_t;
+}
+extern "C" {
+    pub fn free_redis_cmd_attr_is_write_result(res: redis_cmd_attr_is_write_result_t);
+}
 pub type __builtin_va_list = [__va_list_tag; 1usize];
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

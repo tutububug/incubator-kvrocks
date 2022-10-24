@@ -106,3 +106,21 @@ void
 free_redis_get_expire_ts_result(redis_get_expire_ts_result_t res) {
   if (res.err_msg) free(res.err_msg);
 }
+
+redis_cmd_attr_is_write_result_t
+redis_cmd_attr_is_write(redis_processor_t* p, const char* cmd_cstr, size_t cmd_len) {
+  auto cmd_ptr = std::unique_ptr<Redis::Commander>(new Redis::Commander());
+  auto s = p->p->GetCmdAttr(Util::ToLower(std::string(cmd_cstr, cmd_len)), cmd_ptr);
+  redis_cmd_attr_is_write_result_t res;
+  if (!s.IsOK()) {
+    copy_string_to_char_array(&res.err_msg, &res.err_len, s.Msg());
+    res.is_write = 0;
+    return res;
+  }
+  res.is_write = cmd_ptr->GetAttributes()->is_write();
+  return res;
+}
+
+void free_redis_cmd_attr_is_write_result(redis_cmd_attr_is_write_result_t res) {
+  if (res.err_msg) free(res.err_msg);
+}

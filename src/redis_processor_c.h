@@ -57,6 +57,18 @@ redis_get_expire_ts(redis_processor_t* p,
 void
 free_redis_get_expire_ts_result(redis_get_expire_ts_result_t res);
 
+typedef struct {
+  char* err_msg;
+  size_t err_len;
+  int is_write;
+} redis_cmd_attr_is_write_result_t;
+
+redis_cmd_attr_is_write_result_t
+redis_cmd_attr_is_write(redis_processor_t* p, const char* cmd_cstr, size_t cmd_len);
+
+void
+free_redis_cmd_attr_is_write_result(redis_cmd_attr_is_write_result_t res);
+
 #ifdef __cplusplus
 }
 #endif

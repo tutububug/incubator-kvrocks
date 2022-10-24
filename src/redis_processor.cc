@@ -214,4 +214,8 @@ rocksdb::Status Processor::GetExpireTs(int& expire_ts, const Slice& key, const S
   return rocksdb::Status::OK();
 }
 
+Status Processor::GetCmdAttr(const std::string& cmd_name, std::unique_ptr<Redis::Commander>& cmd) {
+  return lookupAndCreateCommand(cmd_name, &cmd);
+}
+
 } // namespace redis
