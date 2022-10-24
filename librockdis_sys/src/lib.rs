@@ -4259,6 +4259,62 @@ extern "C" {
         key_len: size_t,
     ) -> size_t;
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct redis_key_is_expired_result_t {
+    pub err_msg: *mut ::std::os::raw::c_char,
+    pub err_len: size_t,
+    pub expired: ::std::os::raw::c_int,
+}
+#[test]
+fn bindgen_test_layout_redis_key_is_expired_result_t() {
+    assert_eq!(
+        ::std::mem::size_of::<redis_key_is_expired_result_t>(),
+        24usize,
+        concat!("Size of: ", stringify!(redis_key_is_expired_result_t))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<redis_key_is_expired_result_t>(),
+        8usize,
+        concat!("Alignment of ", stringify!(redis_key_is_expired_result_t))
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<redis_key_is_expired_result_t>())).err_msg as *const _ as usize
+        },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(redis_key_is_expired_result_t),
+            "::",
+            stringify!(err_msg)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<redis_key_is_expired_result_t>())).err_len as *const _ as usize
+        },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(redis_key_is_expired_result_t),
+            "::",
+            stringify!(err_len)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<redis_key_is_expired_result_t>())).expired as *const _ as usize
+        },
+        16usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(redis_key_is_expired_result_t),
+            "::",
+            stringify!(expired)
+        )
+    );
+}
 extern "C" {
     pub fn redis_key_is_expired(
         p: *mut redis_processor_t,
@@ -4266,9 +4322,78 @@ extern "C" {
         key_len: size_t,
         val_cstr: *const ::std::os::raw::c_char,
         val_len: size_t,
-        err_msg: *mut *mut ::std::os::raw::c_char,
-        err_len: *mut size_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> redis_key_is_expired_result_t;
+}
+extern "C" {
+    pub fn free_redis_key_is_expired_result(res: redis_key_is_expired_result_t);
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct redis_get_expire_ts_result_t {
+    pub err_msg: *mut ::std::os::raw::c_char,
+    pub err_len: size_t,
+    pub expire_ts: ::std::os::raw::c_int,
+}
+#[test]
+fn bindgen_test_layout_redis_get_expire_ts_result_t() {
+    assert_eq!(
+        ::std::mem::size_of::<redis_get_expire_ts_result_t>(),
+        24usize,
+        concat!("Size of: ", stringify!(redis_get_expire_ts_result_t))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<redis_get_expire_ts_result_t>(),
+        8usize,
+        concat!("Alignment of ", stringify!(redis_get_expire_ts_result_t))
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<redis_get_expire_ts_result_t>())).err_msg as *const _ as usize
+        },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(redis_get_expire_ts_result_t),
+            "::",
+            stringify!(err_msg)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<redis_get_expire_ts_result_t>())).err_len as *const _ as usize
+        },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(redis_get_expire_ts_result_t),
+            "::",
+            stringify!(err_len)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<redis_get_expire_ts_result_t>())).expire_ts as *const _ as usize
+        },
+        16usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(redis_get_expire_ts_result_t),
+            "::",
+            stringify!(expire_ts)
+        )
+    );
+}
+extern "C" {
+    pub fn redis_get_expire_ts(
+        p: *mut redis_processor_t,
+        key_cstr: *const ::std::os::raw::c_char,
+        key_len: size_t,
+        val_cstr: *const ::std::os::raw::c_char,
+        val_len: size_t,
+    ) -> redis_get_expire_ts_result_t;
+}
+extern "C" {
+    pub fn free_redis_get_expire_ts_result(res: redis_get_expire_ts_result_t);
 }
 pub type __builtin_va_list = [__va_list_tag; 1usize];
 #[repr(C)]

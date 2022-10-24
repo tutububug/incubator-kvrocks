@@ -20,6 +20,7 @@ public:
 public:
   Status Do(std::string& resp_str, rocksdb::WriteBatch* batch, int64_t table_id, const std::string& req_str);
   rocksdb::Status Expired(bool& filtered, const rocksdb::Slice &key, const rocksdb::Slice &value);
+  rocksdb::Status GetExpireTs(int& expire_ts, const rocksdb::Slice& key, const rocksdb::Slice& value);
 
 private:
   Status lookupAndCreateCommand(const std::string &cmd_name, std::unique_ptr<Redis::Commander> *cmd);

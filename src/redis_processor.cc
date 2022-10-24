@@ -202,4 +202,16 @@ rocksdb::Status Processor::Expired(bool& filtered, const Slice &key, const Slice
   return s;
 }
 
+rocksdb::Status Processor::GetExpireTs(int& expire_ts, const Slice& key, const Slice& value) {
+  if (isMetaKey(key.ToString())) {
+    Metadata metadata(kRedisNone, false);
+    rocksdb::Status s = metadata.Decode(value.ToString());
+    if (!s.ok()) {
+      return s;
+    }
+    expire_ts = metadata.expire;
+  }
+  return rocksdb::Status::OK();
+}
+
 } // namespace redis

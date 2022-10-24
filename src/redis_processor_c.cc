@@ -84,3 +84,25 @@ redis_key_is_expired(redis_processor_t* p,
 void free_redis_key_is_expired_result(redis_key_is_expired_result_t res) {
   if (res.err_msg) free(res.err_msg);
 }
+
+redis_get_expire_ts_result_t
+redis_get_expire_ts(redis_processor_t* p,
+                    const char* key_cstr, size_t key_len,
+                    const char* val_cstr, size_t val_len) {
+  int expire_ts = 0;
+  auto s = p->p->GetExpireTs(expire_ts,
+                             rocksdb::Slice(key_cstr, key_len),
+                             rocksdb::Slice(val_cstr, val_len));
+
+  redis_get_expire_ts_result_t res;
+  if (!s.ok()) {
+    copy_string_to_char_array(&res.err_msg, &res.err_len, s.ToString());
+  }
+  res.expire_ts = expire_ts;
+  return res;
+}
+
+void
+free_redis_get_expire_ts_result(redis_get_expire_ts_result_t res) {
+  if (res.err_msg) free(res.err_msg);
+}

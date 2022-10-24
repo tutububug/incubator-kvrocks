@@ -43,6 +43,20 @@ redis_key_is_expired(redis_processor_t* p,
 void
 free_redis_key_is_expired_result(redis_key_is_expired_result_t res);
 
+typedef struct {
+  char* err_msg;
+  size_t err_len;
+  int expire_ts;
+} redis_get_expire_ts_result_t;
+
+redis_get_expire_ts_result_t
+redis_get_expire_ts(redis_processor_t* p,
+                    const char* key_cstr, size_t key_len,
+                    const char* val_cstr, size_t val_len);
+
+void
+free_redis_get_expire_ts_result(redis_get_expire_ts_result_t res);
+
 #ifdef __cplusplus
 }
 #endif
