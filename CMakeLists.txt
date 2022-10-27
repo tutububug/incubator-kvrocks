@@ -97,3 +97,4 @@ set(TESTS_SRCS
 add_executable(unittest ${TESTS_SRCS})
 add_dependencies(unittest gtest redisdb rocksdb snappy lz4 glog)
 target_link_libraries(unittest PUBLIC -lgtestd -lredisdb -lrocksdb -lsnappy -llz4 -lglogd)
+#target_link_libraries(unittest PUBLIC -lgtestd -lredisdb -lrocksdb -lsnappy -llz4 -lglog -lpthread) # on linux

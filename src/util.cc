@@ -36,6 +36,7 @@
 #ifdef __linux__
 #include <sys/sendfile.h>
 #endif
+#include <climits>
 
 
 #include "util.h"
@@ -702,5 +703,14 @@ Status Strtod(const std::string& str, double& out) {
   }
   return Status::OK();
 }
+
+#ifdef __linux__
+Status Strtoll(const std::string& str, int64_t& out, int base) {
+  long long o = 0;
+  auto s = Strtoll(str, o, base);
+  out = o;
+  return s;
+}
+#endif
 
 }  // namespace Util
