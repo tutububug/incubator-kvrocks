@@ -182,7 +182,6 @@ rocksdb::Status Processor::subKeyFilter(bool& filtered, const Slice &key, const 
     return s;
   }
   if (metadata.Type() == kRedisString  // metadata key was overwrite by set command
-      || metadata.Expired()
       || ikey.GetVersion() != metadata.version) {
     filtered = true;
   }
