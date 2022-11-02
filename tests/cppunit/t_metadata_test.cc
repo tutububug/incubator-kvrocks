@@ -27,18 +27,20 @@
 TEST(InternalKey, EncodeAndDecode) {
   Slice key = "test-metadata-key";
   Slice sub_key = "test-metadata-sub-key";
-  Slice ns = "namespace";
+  int64_t ns = 1;
   uint64_t version = 12;
   std::string ns_key;
 
-  ComposeNamespaceKey(ns, key, &ns_key, false);
-  InternalKey ikey(ns_key, sub_key, version, false);
+  ComposeNamespaceKey(ns, key, &ns_key, false, kColumnFamilyIDMetadata);
+  InternalKey ikey;
+  ikey.Init(ns_key, sub_key, version, false, kColumnFamilyIDData);
   ASSERT_EQ(ikey.GetKey(), key);
   ASSERT_EQ(ikey.GetSubKey(), sub_key);
   ASSERT_EQ(ikey.GetVersion(), version);
   std::string bytes;
   ikey.Encode(&bytes);
-  InternalKey ikey1(bytes, false);
+  InternalKey ikey1;
+  ikey1.Init(bytes, false);
   EXPECT_EQ(ikey, ikey1);
 }
 
@@ -67,8 +69,8 @@ TEST(Metadata, EncodeAndDeocde) {
 class RedisTypeTest : public TestBase {
 public:
   RedisTypeTest() :TestBase() {
-    redis = Util::MakeUnique<Redis::Database>(storage_, "default_ns");
-    hash = Util::MakeUnique<Redis::Hash>(storage_, "default_ns");
+    redis = Util::MakeUnique<Redis::Database>(storage_, 1, &redis_wb);
+    hash = Util::MakeUnique<Redis::Hash>(storage_, 1, &hash_wb);
     key_ = "test-redis-type";
     fields_ = {"test-hash-key-1", "test-hash-key-2", "test-hash-key-3"};
     values_  = {"hash-test-value-1", "hash-test-value-2", "hash-test-value-3"};
@@ -77,6 +79,8 @@ public:
 protected:
   std::unique_ptr<Redis::Database> redis;
   std::unique_ptr<Redis::Hash> hash;
+  rocksdb::WriteBatch redis_wb;
+  rocksdb::WriteBatch hash_wb;
 };
 
 TEST_F(RedisTypeTest, GetMetadata) {

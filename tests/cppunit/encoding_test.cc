@@ -3,13 +3,7 @@
 #include "redis_key_encoding.h"
 #include "encoding.h"
 #include "redis_metadata.h"
-
-void printBytes(const std::string& str) {
-    for (auto i = 0; i < str.size(); i++) {
-        printf("0x%x ", str.c_str()[i]);
-    }
-    printf("\n");
-}
+#include "util.h"
 
 TEST(KeyEncoding, Int) {
   std::string str;
@@ -26,7 +20,10 @@ TEST(KeyEncoding, Int) {
   Redis::DecodeInt(str, off, out);
   assert(in == out);
 
-  // TODO fix negative number encode failed, in = -1;
+  in = -1;
+  Redis::EncodeInt(&str, in);
+  Redis::DecodeInt(str, off, out);
+  assert(in == out);
 }
 
 TEST(KeyEncoding, Bytes) {
@@ -38,7 +35,7 @@ TEST(KeyEncoding, Bytes) {
     Redis::EncodeBytes(&str, in2);
     Redis::EncodeBytes(&str, in3);
     std::cout << "in: ";
-    printBytes(str);
+    Util::printBytes(str);
 
     std::string out1;
     std::string out2;
@@ -46,13 +43,13 @@ TEST(KeyEncoding, Bytes) {
     size_t off = 0;
     std::cout << "out1: ";
     Redis::DecodeBytes(str, off, &out1);
-    printBytes(out1);
+    Util::printBytes(out1);
     std::cout << "out2: ";
     Redis::DecodeBytes(str, off, &out2);
-    printBytes(out2);
+    Util::printBytes(out2);
     std::cout << "out3: ";
     Redis::DecodeBytes(str, off, &out3);
-    printBytes(out3);
+    Util::printBytes(out3);
 
     assert(in1 == out1);
     assert(in2 == out2);
@@ -79,7 +76,7 @@ TEST(KeyEncoding, TestInternalKey) {
     std::string hash_key("hash_key");
     std::string field_key("field_key");
     int64_t table_id_in = 1;
-    uint64_t version = 2;
+    uint64_t version = 3414636738560000000;
     auto slot_id_encoded = false;
     int64_t cf_code = kColumnFamilyIDMetadata;
 
@@ -100,4 +97,5 @@ TEST(KeyEncoding, TestInternalKey) {
     assert(inner_key_out.GetCF() == inner_key_in.GetCF());
     assert(inner_key_out.GetKey() == inner_key_in.GetKey());
     assert(inner_key_out.GetSubKey() == inner_key_in.GetSubKey());
+    assert(inner_key_out.GetVersion() == inner_key_in.GetVersion());
 }

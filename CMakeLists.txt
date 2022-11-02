@@ -4,7 +4,6 @@ project(rockdis
         LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_C_FLAGS_DEBUG "-D_DEBUG")
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -g")
@@ -81,12 +80,11 @@ add_library(redisdb STATIC ${REDISDB_SRCS})
 # unit test
 set(TESTS_SRCS
         tests/cppunit/main.cc
-#        tests/cppunit/compact_test.cc
+        tests/cppunit/compact_test.cc
 #        tests/cppunit/rwlock_test.cc
-#        tests/cppunit/t_encoding_test.cc
         tests/cppunit/t_hash_test.cc
         tests/cppunit/t_list_test.cc
-#        tests/cppunit/t_metadata_test.cc
+        tests/cppunit/t_metadata_test.cc
         tests/cppunit/t_set_test.cc
         tests/cppunit/t_string_test.cc
         tests/cppunit/t_zset_test.cc
@@ -96,5 +94,10 @@ set(TESTS_SRCS
         )
 add_executable(unittest ${TESTS_SRCS})
 add_dependencies(unittest gtest redisdb rocksdb snappy lz4 glog)
-target_link_libraries(unittest PUBLIC -lgtestd -lredisdb -lrocksdb -lsnappy -llz4 -lglogd)
-#target_link_libraries(unittest PUBLIC -lgtestd -lredisdb -lrocksdb -lsnappy -llz4 -lglog -lpthread) # on linux
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        target_link_libraries(unittest PUBLIC -lgtestd -lredisdb -lrocksdb -lsnappy -llz4 -lglogd)
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+        target_link_libraries(unittest PUBLIC -lgtestd -lredisdb -lrocksdb -lsnappy -llz4 -lglog -lpthread)
+else()
+        message(STATUS "unsupported on system: " ${CMAKE_SYSTEM_NAME})
+endif()

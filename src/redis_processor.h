@@ -28,21 +28,8 @@ private:
   Status executeCommands(std::string& resp_str, rocksdb::WriteBatch* batch, int64_t table_id, const std::vector<Redis::CommandTokens> &to_process_cmds);
   Status checkCommandArgs(const Redis::CommandTokens& cmd_tokens, const CommandAttributes* attributes);
 
-  rocksdb::Status getCfCode(const std::string& key, int64_t& cf_code);
-  bool isMetaKey(const std::string& key);
-  bool isSubKey(const std::string& key);
-  rocksdb::Status metadataFilter(bool& filtered, const rocksdb::Slice &key, const rocksdb::Slice &value);
-  rocksdb::Status subKeyFilter(bool& filtered, const rocksdb::Slice &key, const rocksdb::Slice &value);
-
 private:
   Storage* storage_;
-
-public:
-  struct ExpireCache {
-    std::string key;
-    std::string data;
-  };
-  static thread_local ExpireCache expire_cache;
 };
 
 } // namespace Redis

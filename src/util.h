@@ -81,4 +81,11 @@ Status Strtod(const std::string& str, double& out);
 Status Strtoll(const std::string& str, int64_t& out, int base = 10);
 #endif
 
+inline void printBytes(const std::string& str) {
+  for (auto i = 0; i < str.size(); i++) {
+    printf("%02x ", static_cast<uint8_t>(str.c_str()[i]));
+  }
+  printf("\n");
+}
+
 }  // namespace Util

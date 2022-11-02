@@ -42,9 +42,13 @@ rocksdb::Status InternalKey::Init(Slice input, bool slot_id_encoded) {
 
   auto ns_key = input.ToString();
   size_t off = 0;
-  extractNamespaceKey(ns_key, off, table_id_, &k_, slot_id_encoded, reinterpret_cast<int64_t &>(slotid_), cf_code_);
+  int64_t slotid = 0;
+  extractNamespaceKey(ns_key, off, table_id_, &k_, slot_id_encoded, slotid, cf_code_);
+  slotid_ = slotid;
   key_ = Slice(k_);
-  auto s = Redis::DecodeInt(ns_key, off, reinterpret_cast<int64_t &>(version_)); // decode sub key version
+  int64_t version = 0;
+  auto s = Redis::DecodeInt(ns_key, off, version); // decode sub key version
+  version_ = version;
   if (!s.IsOK()) {
     return rocksdb::Status::IOError(s.Msg());
   }

@@ -10,7 +10,12 @@ struct rocksdb_t { rocksdb::DB* rep; };
 // the input pointer type of 'void* db' is required as 'rocksdb_t*' which defined in 'rocksdb/c.h'
 redis_processor_t* new_redis_processor(void* db) {
   auto p = new redis_processor();
-  p->p = new Redis::Processor(new Redis::Storage(reinterpret_cast<struct rocksdb_t*>(db)->rep));
+  auto s = new Redis::Storage();
+  auto sts= s->Open(reinterpret_cast<struct rocksdb_t*>(db)->rep);
+  if (!sts.IsOK()) {
+    return nullptr;
+  }
+  p->p = new Redis::Processor(s);
   return p;
 }
 

@@ -37,8 +37,8 @@ protected:
     auto ss = rocksdb::DB::Open(options, db_path_, &db);
     assert(ss.ok());
 
-    storage_ = new Redis::Storage(db);
-    Status s = storage_->Open();
+    storage_ = new Redis::Storage();
+    Status s = storage_->Open(db);
     if (!s.IsOK()) {
       std::cout << "Failed to open the storage, encounter error: " << s.Msg() << std::endl;
       assert(s.IsOK());

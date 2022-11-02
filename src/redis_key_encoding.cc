@@ -36,6 +36,7 @@
 #include <sstream>
 #include <exception>
 #include "redis_key_encoding.h"
+#include "encoding.h"
 
 namespace Redis {
 
@@ -156,25 +157,11 @@ int64_t DecodeCmpUintToInt(uint64_t u) {
 }
 
 uint64_t bigEndianUint64(const char* b) {
-    return static_cast<uint64_t>(b[7]) |
-    static_cast<uint64_t>(b[6])<<8 |
-    static_cast<uint64_t>(b[5])<<16 |
-    static_cast<uint64_t>(b[4])<<24 |
-    static_cast<uint64_t>(b[3])<<32 |
-    static_cast<uint64_t>(b[2])<<40 |
-    static_cast<uint64_t>(b[1])<<48 |
-    static_cast<uint64_t>(b[0])<<56;
+  return DecodeFixed64(b);
 }
 
 void bigEndianPutUint64(char* b, uint64_t v) {
-    b[0] = static_cast<char>(v >> 56);
-    b[1] = static_cast<char>(v >> 48);
-    b[2] = static_cast<char>(v >> 40);
-    b[3] = static_cast<char>(v >> 32);
-    b[4] = static_cast<char>(v >> 24);
-    b[5] = static_cast<char>(v >> 16);
-    b[6] = static_cast<char>(v >> 8);
-    b[7] = static_cast<char>(v);
+  EncodeFixed64(b, v);
 }
 
 // EncodeInt appends the encoded value to slice b and returns the appended slice.

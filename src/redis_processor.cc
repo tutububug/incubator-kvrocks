@@ -6,8 +6,6 @@ namespace Redis {
 
 using rocksdb::Slice;
 
-thread_local Processor::ExpireCache Processor::expire_cache;
-
 std::once_flag once_flag;
 Processor::Processor(Storage* s): storage_(s) {
   std::call_once(once_flag, []() {
@@ -94,115 +92,12 @@ Status Processor::checkCommandArgs(const Redis::CommandTokens& cmd_tokens, const
   return Status::OK();
 }
 
-rocksdb::Status Processor::getCfCode(const std::string& key, int64_t& cf_code) {
-  size_t off = 0;
-  int64_t table_id = 0;
-  std::string user_key;
-  int64_t slot_id = 0;
-  return extractNamespaceKey(key, off, table_id, &user_key, storage_->IsSlotIdEncoded(), slot_id, cf_code);
-}
-
-bool Processor::isMetaKey(const std::string& key) {
-  int64_t cf_code = 0;
-  auto s = getCfCode(key, cf_code);
-  if (!s.ok()) {
-    return false;
-  }
-  return cf_code == kColumnFamilyIDMetadata;
-}
-
-bool Processor::isSubKey(const std::string& key) {
-  int64_t cf_code = 0;
-  auto s = getCfCode(key, cf_code);
-  if (!s.ok()) {
-    return false;
-  }
-  return cf_code == kColumnFamilyIDData ||
-  cf_code == kColumnFamilyIDZSetScore;
-}
-
-rocksdb::Status Processor::metadataFilter(bool& filtered, const Slice &key, const Slice &value) {
-  filtered = false;
-
-  std::string ns, user_key, bytes = value.ToString();
-  Metadata metadata(kRedisNone, false);
-  rocksdb::Status s = metadata.Decode(bytes);
-  if (!s.ok()) {
-    return s;
-  }
-  int64_t table_id = 0;
-  s = ExtractNamespaceKey(key, table_id, &user_key, storage_->IsSlotIdEncoded());
-  if (!s.ok()) {
-    return s;
-  }
-  filtered = metadata.Expired();
-
-  Processor::expire_cache.key = key.ToString();
-  Processor::expire_cache.data = bytes;
-  return rocksdb::Status::OK();
-}
-
-rocksdb::Status Processor::subKeyFilter(bool& filtered, const Slice &key, const Slice &value) {
-  filtered = false;
-
-  InternalKey ikey;
-  auto s = ikey.Init(key, storage_->IsSlotIdEncoded());
-  if (!s.ok()) {
-    return s;
-  }
-  std::string metadata_key;
-  int64_t cf_code = 0;
-  auto db = storage_->GetDB();
-  ComposeNamespaceKey(ikey.GetNamespace(), ikey.GetKey(), &metadata_key, storage_->IsSlotIdEncoded(), cf_code);
-
-  auto cached_key = &Processor::expire_cache.key;
-  auto cached_metadata = &Processor::expire_cache.data;
-  if (cached_key->empty() || metadata_key != *cached_key) {
-    std::string meta_value;
-    s = db->Get(rocksdb::ReadOptions(), metadata_key, &meta_value);
-    *cached_key = std::move(metadata_key);
-    if (s.ok()) {
-      *cached_metadata = std::move(meta_value);
-    } else if (s.IsNotFound()) {
-      cached_metadata->clear();
-    } else {
-      cached_key->clear();
-      cached_metadata->clear();
-    }
-  }
-  // the metadata was not found
-  if (cached_metadata->empty()) {
-    filtered = true;
-    return rocksdb::Status::OK();
-  }
-
-  Metadata metadata(kRedisNone, false);
-  s = metadata.Decode(*cached_metadata);
-  if (!s.ok()) {
-    return s;
-  }
-  if (metadata.Type() == kRedisString  // metadata key was overwrite by set command
-      || ikey.GetVersion() != metadata.version) {
-    filtered = true;
-  }
-  return rocksdb::Status::OK();
-}
-
 rocksdb::Status Processor::Expired(bool& filtered, const Slice &key, const Slice &value) {
-  rocksdb::Status s;
-  auto k = key.ToString();
-  if (isMetaKey(k)) {
-    s = metadataFilter(filtered, key, value);
-  } else if (isSubKey(k)) {
-    s = subKeyFilter(filtered, key, value);
-  } else {
-    s = rocksdb::Status::IOError("unknown cfcode");
-  }
-  return s;
+  return storage_->Expired(filtered, key, value);
 }
 
 rocksdb::Status Processor::GetExpireTs(int& expire_ts, const Slice& key, const Slice& value) {
-  if (isMetaKey(key.ToString())) {
+  if (storage_->isMetaKey(key.ToString())) {
     Metadata metadata(kRedisNone, false);
     rocksdb::Status s = metadata.Decode(value.ToString());
     if (!s.ok()) {
