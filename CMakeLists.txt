@@ -81,7 +81,7 @@ add_library(redisdb STATIC ${REDISDB_SRCS})
 set(TESTS_SRCS
         tests/cppunit/main.cc
         tests/cppunit/compact_test.cc
-#        tests/cppunit/rwlock_test.cc
+        tests/cppunit/rwlock_test.cc
         tests/cppunit/t_hash_test.cc
         tests/cppunit/t_list_test.cc
         tests/cppunit/t_metadata_test.cc
