@@ -56,17 +56,8 @@
 
 #include "db_util.h"
 
-#define HLL_P 14 /* The greater is P, the smaller the error. */
-#define HLL_Q                                                                                            \
-  (64 - HLL_P) /* The number of bits of the hash value used for determining the number of leading zeros. \
-                */
-#define HLL_REGISTERS (1 << HLL_P)     /* With P=14, 16384 registers. */
-#define HLL_P_MASK (HLL_REGISTERS - 1) /* Mask to index register. */
-#define HLL_BITS 8
-#define HLL_REGISTER_MAX ((1 << HLL_BITS) - 1)
-#define HLL_ALPHA_INF 0.721347520444481703680 /* constant for 0.5/ln(2) */
-
 namespace redis {
+
 
 rocksdb::Status Hyperloglog::GetMetadata(const Slice &ns_key, HyperloglogMetadata *metadata) {
   return Database::GetMetadata({kRedisHyperloglog}, ns_key, metadata);
@@ -87,30 +78,25 @@ rocksdb::Status Hyperloglog::Add(const Slice &user_key, const std::vector<Slice>
   batch->PutLogData(log_data.Encode());
   if (s.IsNotFound()) {
     std::string bytes;
-    metadata.size = HLL_REGISTERS;  // 'size' must non-zone, or 'GetMetadata' will failed as 'expired'.
     metadata.Encode(&bytes);
     batch->Put(metadata_cf_handle_, ns_key, bytes);
   }
-  for (const auto &element : elements) {
-    long index = 0;
-    uint8_t count = hllPatLen((unsigned char *)element.data(), element.size(), &index);
 
-    std::string sub_key =
-        InternalKey(ns_key, std::to_string(index), metadata.version, storage_->IsSlotIdEncoded()).Encode();
-    std::string old_count = "0";
-    auto s = storage_->Get(rocksdb::ReadOptions(), sub_key, &old_count);
-    if (!s.ok() && !s.IsNotFound()) return s;
-    if (static_cast<unsigned long>(count) > std::stoul(old_count)) {
-      batch->Put(sub_key, std::to_string(count));
-      *ret = 1;
-    }
+  SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
+  for (const auto &element : elements) {
+    long register_index = 0;
+    uint8_t count = hllPatLen((unsigned char *)element.data(), element.size(), &register_index);
+
+    auto s = cache.Set(register_index, count);
+    if (!s.ok()) return s;
   }
+  cache.BatchForFlush(batch);
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
 }
 
 rocksdb::Status Hyperloglog::Count(const Slice &user_key, int *ret) {
   *ret = 0;
-  std::vector<uint8_t> counts(HLL_REGISTERS);
+  std::vector<uint8_t> counts(kHyperLogLogRegisterCount);
   auto s = getRegisters(user_key, &counts);
   if (!s.ok()) return s;
   *ret = hllCount(counts);
@@ -118,9 +104,9 @@ rocksdb::Status Hyperloglog::Count(const Slice &user_key, int *ret) {
 }
 
 rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
-  std::vector<uint8_t> max(HLL_REGISTERS);
+  std::vector<uint8_t> max(kHyperLogLogRegisterCount);
   for (const auto &user_key : user_keys) {
-    std::vector<uint8_t> counts(HLL_REGISTERS);
+    std::vector<uint8_t> counts(kHyperLogLogRegisterCount);
     auto s = getRegisters(user_key, &counts);
     if (!s.ok()) return s;
     hllMerge(&max[0], counts);
@@ -138,12 +124,11 @@ rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
   batch->PutLogData(log_data.Encode());
   if (s.IsNotFound()) {
     std::string bytes;
-    metadata.size = HLL_REGISTERS;
     metadata.Encode(&bytes);
     batch->Put(metadata_cf_handle_, ns_key, bytes);
   }
 
-  for (auto i = 0; i < HLL_REGISTERS; i++) {
+  for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
     std::string sub_key =
         InternalKey(ns_key, std::to_string(i), metadata.version, storage_->IsSlotIdEncoded()).Encode();
 
@@ -157,12 +142,12 @@ rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
 #define HLL_DENSE_GET_REGISTER(target, p, regnum)             \
   do {                                                        \
     uint8_t *_p = (uint8_t *)p;                               \
-    unsigned long _byte = regnum * HLL_BITS / 8;              \
-    unsigned long _fb = regnum * HLL_BITS & 7;                \
+    unsigned long _byte = regnum * kHyperLogLogBits / 8;              \
+    unsigned long _fb = regnum * kHyperLogLogBits & 7;                \
     unsigned long _fb8 = 8 - _fb;                             \
     unsigned long b0 = _p[_byte];                             \
     unsigned long b1 = _p[_byte + 1];                         \
-    target = ((b0 >> _fb) | (b1 << _fb8)) & HLL_REGISTER_MAX; \
+    target = ((b0 >> _fb) | (b1 << _fb8)) & kHyperLogLogRegisterMax; \
   } while (0)
 
 /* ========================= HyperLogLog algorithm  ========================= */
@@ -236,7 +221,7 @@ int Hyperloglog::hllPatLen(unsigned char *ele, size_t elesize, long *regp) {
   uint64_t hash, bit, index;
   int count;
 
-  /* Count the number of zeroes starting from bit HLL_REGISTERS
+  /* Count the number of zeroes starting from bit kHyperLogLogRegisterCount
    * (that is a power of two corresponding to the first bit we don't use
    * as index). The max run can be 64-P+1 = Q+1 bits.
    *
@@ -248,9 +233,9 @@ int Hyperloglog::hllPatLen(unsigned char *ele, size_t elesize, long *regp) {
    * This may sound like inefficient, but actually in the average case
    * there are high probabilities to find a 1 after a few iterations. */
   hash = MurmurHash64A(ele, elesize, 0xadc83b19ULL);
-  index = hash & HLL_P_MASK;      /* Register index. */
-  hash >>= HLL_P;                 /* Remove bits used to address the register. */
-  hash |= ((uint64_t)1 << HLL_Q); /* Make sure the loop terminates
+  index = hash & kHyperLogLogRegisterCountMask;      /* Register index. */
+  hash >>= kHyperLogLogRegisterCountPow;                 /* Remove bits used to address the register. */
+  hash |= ((uint64_t)1 << kHyperLogLogHashBitCount); /* Make sure the loop terminates
                                      and count will be <= Q+1. */
   bit = 1;
   count = 1; /* Initialized to 1 since we count the "00000...1" pattern. */
@@ -264,9 +249,7 @@ int Hyperloglog::hllPatLen(unsigned char *ele, size_t elesize, long *regp) {
 
 /* Compute the register histogram in the dense representation. */
 void hllDenseRegHisto(uint8_t *registers, int *reghisto) {
-  int j;
-
-  for (j = 0; j < HLL_REGISTERS; j++) {
+  for (uint32_t j = 0; j < kHyperLogLogRegisterCount; j++) {
     unsigned long reg;
     HLL_DENSE_GET_REGISTER(reg, registers, j);
     reghisto[reg]++;
@@ -321,14 +304,14 @@ double hllTau(double x) {
  * pointed by 'invalid' is set to non-zero, otherwise it is left untouched.
  *
  * hllCount() supports a special internal-only encoding of HLL_RAW, that
- * is, hdr->registers will point to an uint8_t array of HLL_REGISTERS element.
+ * is, hdr->registers will point to an uint8_t array of kHyperLogLogRegisterCount element.
  * This is useful in order to speedup PFCOUNT when called against multiple
  * keys (no need to work with 6-bit integers encoding). */
 uint64_t Hyperloglog::hllCount(const std::vector<uint8_t> &counts) {
-  double m = HLL_REGISTERS;
+  double m = kHyperLogLogRegisterCount;
   double E;
   int j;
-  /* Note that reghisto size could be just HLL_Q+2, because HLL_Q+1 is
+  /* Note that reghisto size could be just kHyperLogLogHashBitCount+2, because kHyperLogLogHashBitCount+1 is
    * the maximum frequency of the "000...1" sequence the hash function is
    * able to return. However it is slow to check for sanity of the
    * input: instead we history array at a safe size: overflows will
@@ -341,19 +324,19 @@ uint64_t Hyperloglog::hllCount(const std::vector<uint8_t> &counts) {
   /* Estimate cardinality from register histogram. See:
    * "New cardinality estimation algorithms for HyperLogLog sketches"
    * Otmar Ertl, arXiv:1702.01284 */
-  double z = m * hllTau((m - reghisto[HLL_Q + 1]) / (double)m);
-  for (j = HLL_Q; j >= 1; --j) {
+  double z = m * hllTau((m - reghisto[kHyperLogLogHashBitCount + 1]) / (double)m);
+  for (j = kHyperLogLogHashBitCount; j >= 1; --j) {
     z += reghisto[j];
     z *= 0.5;
   }
   z += m * hllSigma(reghisto[0] / (double)m);
-  E = llroundl(HLL_ALPHA_INF * m * m / z);
+  E = llroundl(kHyperLogLogAlphaInf * m * m / z);
 
   return (uint64_t)E;
 }
 
 /* Merge by computing MAX(registers[i],hll[i]) the HyperLogLog 'hll'
- * with an array of uint8_t HLL_REGISTERS registers pointed by 'max'.
+ * with an array of uint8_t kHyperLogLogRegisterCount registers pointed by 'max'.
  *
  * The hll object must be already validated via isHLLObjectOrReply()
  * or in some other way.
@@ -361,11 +344,10 @@ uint64_t Hyperloglog::hllCount(const std::vector<uint8_t> &counts) {
  * If the HyperLogLog is sparse and is found to be invalid, C_ERR
  * is returned, otherwise the function always succeeds. */
 void Hyperloglog::hllMerge(uint8_t *max, const std::vector<uint8_t> &counts) {
-  int i;
   uint8_t val;
   auto registers = (uint8_t *)(&counts[0]);
 
-  for (i = 0; i < HLL_REGISTERS; i++) {
+  for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
     HLL_DENSE_GET_REGISTER(val, registers, i);
     if (val > max[i]) max[i] = val;
   }

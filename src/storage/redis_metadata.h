@@ -331,7 +331,22 @@ class SearchMetadata : public Metadata {
   rocksdb::Status Decode(Slice *input) override;
 };
 
+constexpr uint32_t kHyperLogLogRegisterCountPow = 14; /* The greater is P, the smaller the error. */
+constexpr uint32_t kHyperLogLogHashBitCount = 64 - kHyperLogLogRegisterCountPow; /* The number of bits of the hash value used for determining the number of leading zeros. */
+constexpr uint32_t kHyperLogLogRegisterCount = 1 << kHyperLogLogRegisterCountPow; /* With P=14, 16384 registers. */
+
 class HyperloglogMetadata : public Metadata {
  public:
-  explicit HyperloglogMetadata(bool generate_version = true) : Metadata(kRedisHyperloglog, generate_version) {}
+  enum class EncodeType : uint8_t {
+    DENSE = 0,
+    SPARSE = 1,
+  };
+
+  explicit HyperloglogMetadata(EncodeType encode_type = EncodeType::DENSE, bool generate_version = true) : Metadata(kRedisHyperloglog, generate_version), encode_type_(encode_type) {
+    size = static_cast<uint64_t>(kHyperLogLogRegisterCount);  // 'size' must non-zone, or 'GetMetadata' will failed as 'expired'.
+  }
+
+private:
+ // TODO optimize for converting storage encoding automantically
+ EncodeType encode_type_;
 };

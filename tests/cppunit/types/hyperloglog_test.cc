@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <chrono>
 
 #include "test_base.h"
 #include "types/redis_hyperloglog.h"
@@ -118,4 +119,43 @@ TEST_F(RedisHyperloglogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_
   // a little larger than 'card * 0.05' (left : 149, right: 146.30000000000001).
   double right = card / 100 * 5.1;
   ASSERT_TRUE(left < right) << "left : " << left << ", right: " << right;
+}
+
+class Timer {
+public:
+    explicit Timer(const std::string& name) : name_(name), start_(std::chrono::high_resolution_clock::now()) {}
+    Timer() = delete;
+
+    ~Timer() {
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end - start_;
+        std::cout << "name: " << name_ << ", seconds: " << duration.count() << std::endl;
+    }
+
+private:
+    std::string name_;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_;
+};
+
+TEST_F(RedisHyperloglogTest, time_cost) {
+  for (int x = 1; x < 1000000; x++) {
+    int ret = 0;
+    {
+      Timer timer("add 1");
+      ASSERT_TRUE(hll_->Add("hll0", {"foo-" + std::to_string(x)}, &ret).ok());
+    }
+
+    int card = 0;
+    {
+      Timer timer("count");
+      ASSERT_TRUE(hll_->Count("hll0", &card).ok());
+      std::cout << "count: " << card << std::endl;
+    }
+
+    double realcard = x;
+    // assert the ABS of 'card' and 'realcart' is within 5% of the cardinality
+    double left = std::abs(card - realcard);
+    double right = card / 100 * 5;
+    ASSERT_TRUE(left <= right) << "left : " << left << ", right: " << right;
+  }
 }
