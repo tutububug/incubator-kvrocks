@@ -91,12 +91,13 @@ rocksdb::Status Hyperloglog::Add(const Slice &user_key, const std::vector<Slice>
     if (!s.ok()) return s;
   }
   cache.BatchForFlush(batch);
+  *ret = cache.GetDirtyCount() > 0 ? 1 : 0;
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
 }
 
 rocksdb::Status Hyperloglog::Count(const Slice &user_key, int *ret) {
   *ret = 0;
-  std::vector<uint8_t> counts(kHyperLogLogRegisterCount);
+  std::vector<uint8_t> counts(kHyperLogLogRegisterBytes);
   auto s = getRegisters(user_key, &counts);
   if (!s.ok()) return s;
   *ret = hllCount(counts);
@@ -104,9 +105,9 @@ rocksdb::Status Hyperloglog::Count(const Slice &user_key, int *ret) {
 }
 
 rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
-  std::vector<uint8_t> max(kHyperLogLogRegisterCount);
+  std::vector<uint8_t> max(kHyperLogLogRegisterBytes);
   for (const auto &user_key : user_keys) {
-    std::vector<uint8_t> counts(kHyperLogLogRegisterCount);
+    std::vector<uint8_t> counts(kHyperLogLogRegisterBytes);
     auto s = getRegisters(user_key, &counts);
     if (!s.ok()) return s;
     hllMerge(&max[0], counts);
@@ -128,11 +129,16 @@ rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
     batch->Put(metadata_cf_handle_, ns_key, bytes);
   }
 
+  auto empty = std::string(kHyperLogLogRegisterBytesPerSegment, 0);
   for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
+    auto val = std::string(max.begin() + i * kHyperLogLogRegisterBytesPerSegment,
+                           max.begin() + (i + 1) * kHyperLogLogRegisterBytesPerSegment);
+    if (val == empty) {
+      continue;
+    }
     std::string sub_key =
         InternalKey(ns_key, std::to_string(i), metadata.version, storage_->IsSlotIdEncoded()).Encode();
-
-    batch->Put(sub_key, std::to_string(max[i]));
+    batch->Put(sub_key, val);
   }
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
 }
@@ -373,9 +379,10 @@ rocksdb::Status Hyperloglog::getRegisters(const Slice &user_key, std::vector<uin
   for (iter->Seek(prefix); iter->Valid() && iter->key().starts_with(prefix); iter->Next()) {
     InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
 
-    int index = std::stoi(ikey.GetSubKey().ToString());
-    uint8_t count = static_cast<uint8_t>(std::stoi(iter->value().ToString()));
-    (*counts)[index] = count;
+    int segment_index = std::stoi(ikey.GetSubKey().ToString());
+    auto val = iter->value().ToString();
+    // TODO assert the val size must be kHyperLogLogRegisterBytesPerSegment
+    std::copy(val.begin(), val.end(), counts->data() + segment_index * kHyperLogLogRegisterBytesPerSegment);
   }
   return rocksdb::Status::OK();
 }

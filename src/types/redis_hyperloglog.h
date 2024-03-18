@@ -32,7 +32,8 @@ constexpr uint32_t kHyperLogLogRegisterMax = ((1 << kHyperLogLogBits) - 1);
 constexpr double kHyperLogLogAlphaInf = 0.721347520444481703680; /* constant for 0.5/ln(2) */
 constexpr uint32_t kHyperLogLogSegmentCount = 16;
 constexpr uint32_t kHyperLogLogRegisterCountPerSegment = kHyperLogLogRegisterCount / kHyperLogLogSegmentCount;
-constexpr uint32_t kHyperLogLogRegisterBytesPerSegment = kHyperLogLogRegisterCountPerSegment * kHyperLogLogBits;
+constexpr uint32_t kHyperLogLogRegisterBytesPerSegment = kHyperLogLogRegisterCountPerSegment * kHyperLogLogBits / sizeof(uint8_t);
+constexpr uint32_t kHyperLogLogRegisterBytes = kHyperLogLogRegisterCount * kHyperLogLogBits / sizeof(uint8_t);
 
 class Hyperloglog : public Database {
  public:
@@ -75,7 +76,7 @@ class Hyperloglog::SegmentCacheStore {
       auto s = storage_->Get(rocksdb::ReadOptions(), sub_key, &value);
       if (!s.ok() && !s.IsNotFound()) return s;
 
-      std::vector<uint8_t> registers(kHyperLogLogRegisterBytesPerSegment / sizeof(uint8_t));
+      std::vector<uint8_t> registers(kHyperLogLogRegisterBytesPerSegment);
       auto bitfield = std::unique_ptr<ArrayBitfieldBitmap>(new ArrayBitfieldBitmap);
       if (s.IsNotFound()) {
         auto s = bitfield->Set(0, registers.size(), registers.data());
@@ -94,7 +95,7 @@ class Hyperloglog::SegmentCacheStore {
     if (count > old_count) {
       auto s = segment->Set(offset_in_segment, 1, &count);
       if (!s.IsOK()) return rocksdb::Status::IOError("ArrayBitfieldBitmap: " + s.Msg());
-      ret_ = 1;
+      dirty_++;
     }
     return rocksdb::Status::OK();
   }
@@ -103,7 +104,7 @@ class Hyperloglog::SegmentCacheStore {
     for (auto &[index, content] : cache_) {
       std::string sub_key =
           InternalKey(ns_key_, std::to_string(index), metadata_.version, storage_->IsSlotIdEncoded()).Encode();
-      std::vector<uint8_t> registers(kHyperLogLogRegisterBytesPerSegment / sizeof(uint8_t));
+      std::vector<uint8_t> registers(kHyperLogLogRegisterBytesPerSegment);
       auto s = content->Get(0, registers.size(), registers.data());
       if (!s.IsOK()) return rocksdb::Status::IOError("ArrayBitfieldBitmap: " + s.Msg());
       batch->Put(sub_key, std::string(registers.begin(), registers.end()));
@@ -111,12 +112,14 @@ class Hyperloglog::SegmentCacheStore {
     return rocksdb::Status::OK();
   }
 
+  size_t GetDirtyCount() { return dirty_; }
+
  private:
   engine::Storage *storage_;
   std::string ns_key_;
   Metadata metadata_;
   std::unordered_map<uint32_t, std::unique_ptr<ArrayBitfieldBitmap>> cache_;
-  int ret_ = 0;
+  size_t dirty_ = 0;
 };
 
 }  // namespace redis
