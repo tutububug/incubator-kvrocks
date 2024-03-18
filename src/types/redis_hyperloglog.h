@@ -32,7 +32,8 @@ constexpr uint32_t kHyperLogLogRegisterMax = ((1 << kHyperLogLogBits) - 1);
 constexpr double kHyperLogLogAlphaInf = 0.721347520444481703680; /* constant for 0.5/ln(2) */
 constexpr uint32_t kHyperLogLogSegmentCount = 16;
 constexpr uint32_t kHyperLogLogRegisterCountPerSegment = kHyperLogLogRegisterCount / kHyperLogLogSegmentCount;
-constexpr uint32_t kHyperLogLogRegisterBytesPerSegment = kHyperLogLogRegisterCountPerSegment * kHyperLogLogBits / sizeof(uint8_t);
+constexpr uint32_t kHyperLogLogRegisterBytesPerSegment =
+    kHyperLogLogRegisterCountPerSegment * kHyperLogLogBits / sizeof(uint8_t);
 constexpr uint32_t kHyperLogLogRegisterBytes = kHyperLogLogRegisterCount * kHyperLogLogBits / sizeof(uint8_t);
 
 class Hyperloglog : public Database {
@@ -57,12 +58,18 @@ class Hyperloglog::SegmentCacheStore {
  public:
   SegmentCacheStore(engine::Storage *storage, rocksdb::ColumnFamilyHandle *metadata_cf_handle,
                     std::string namespace_key, const Metadata &bitmap_metadata)
-      : storage_(storage),
-        ns_key_(std::move(namespace_key)),
-        metadata_(bitmap_metadata) {}
+      : storage_(storage), ns_key_(std::move(namespace_key)), metadata_(bitmap_metadata) {}
   SegmentCacheStore(const SegmentCacheStore &) = delete;
   SegmentCacheStore &operator=(const SegmentCacheStore &) = delete;
   ~SegmentCacheStore() = default;
+
+rocksdb::Status Set(uint32_t segment_index, const std::vector<uint8_t> &registers) {
+  auto bitfield = new ArrayBitfieldBitmap;
+  auto s = bitfield->Set(0, registers.size(), registers.data());
+  if (!s.IsOK()) return rocksdb::Status::IOError("ArrayBitfieldBitmap: " + s.Msg());
+  cache_[segment_index].reset(bitfield);
+  return rocksdb::Status::OK();
+}
 
   rocksdb::Status Set(uint32_t register_index, uint8_t count) {
     uint32_t segment_index = register_index / kHyperLogLogRegisterCountPerSegment;
@@ -80,20 +87,18 @@ class Hyperloglog::SegmentCacheStore {
       auto bitfield = std::unique_ptr<ArrayBitfieldBitmap>(new ArrayBitfieldBitmap);
       if (s.IsNotFound()) {
         auto s = bitfield->Set(0, registers.size(), registers.data());
-      if (!s.IsOK()) return rocksdb::Status::IOError("ArrayBitfieldBitmap: " + s.Msg());
+        if (!s.IsOK()) return rocksdb::Status::IOError("ArrayBitfieldBitmap: " + s.Msg());
       } else {
         auto s = bitfield->Set(0, value.size(), reinterpret_cast<uint8_t *>(value.data()));
-      if (!s.IsOK()) return rocksdb::Status::IOError("ArrayBitfieldBitmap: " + s.Msg());
+        if (!s.IsOK()) return rocksdb::Status::IOError("ArrayBitfieldBitmap: " + s.Msg());
       }
       cache_[segment_index] = std::move(bitfield);
     }
 
     auto &segment = cache_[segment_index];
-    uint8_t old_count = 0;
-    auto s = segment->Get(offset_in_segment, 1, &old_count);
-      if (!s.IsOK()) return rocksdb::Status::IOError("ArrayBitfieldBitmap: " + s.Msg());
+    uint8_t old_count = segment->GetUnsignedBitfield(offset_in_segment, kHyperLogLogBits).GetValue();
     if (count > old_count) {
-      auto s = segment->Set(offset_in_segment, 1, &count);
+      auto s = segment->SetBitfield(offset_in_segment, kHyperLogLogBits, count);
       if (!s.IsOK()) return rocksdb::Status::IOError("ArrayBitfieldBitmap: " + s.Msg());
       dirty_++;
     }
@@ -107,6 +112,10 @@ class Hyperloglog::SegmentCacheStore {
       std::vector<uint8_t> registers(kHyperLogLogRegisterBytesPerSegment);
       auto s = content->Get(0, registers.size(), registers.data());
       if (!s.IsOK()) return rocksdb::Status::IOError("ArrayBitfieldBitmap: " + s.Msg());
+      // Skip empty segment
+      if (std::all_of(registers.begin(), registers.end(), [](uint8_t val) { return val == 0; })) {
+        continue;
+      };
       batch->Put(sub_key, std::string(registers.begin(), registers.end()));
     }
     return rocksdb::Status::OK();

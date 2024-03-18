@@ -58,7 +58,6 @@
 
 namespace redis {
 
-
 rocksdb::Status Hyperloglog::GetMetadata(const Slice &ns_key, HyperloglogMetadata *metadata) {
   return Database::GetMetadata({kRedisHyperloglog}, ns_key, metadata);
 }
@@ -129,17 +128,14 @@ rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
     batch->Put(metadata_cf_handle_, ns_key, bytes);
   }
 
-  auto empty = std::string(kHyperLogLogRegisterBytesPerSegment, 0);
+  SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
   for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
-    auto val = std::string(max.begin() + i * kHyperLogLogRegisterBytesPerSegment,
-                           max.begin() + (i + 1) * kHyperLogLogRegisterBytesPerSegment);
-    if (val == empty) {
-      continue;
-    }
-    std::string sub_key =
-        InternalKey(ns_key, std::to_string(i), metadata.version, storage_->IsSlotIdEncoded()).Encode();
-    batch->Put(sub_key, val);
+    std::vector<uint8_t> registers(max.begin() + i * kHyperLogLogRegisterBytesPerSegment,
+                                   max.begin() + (i + 1) * kHyperLogLogRegisterBytesPerSegment);
+    auto s = cache.Set(i, registers);
+    if (!s.ok()) return s;
   }
+  cache.BatchForFlush(batch);
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
 }
 
