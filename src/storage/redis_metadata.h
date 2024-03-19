@@ -347,6 +347,6 @@ class HyperloglogMetadata : public Metadata {
   }
 
 private:
- // TODO optimize for converting storage encoding automantically
+ // TODO optimize for converting storage encoding automatically
  EncodeType encode_type_;
 };

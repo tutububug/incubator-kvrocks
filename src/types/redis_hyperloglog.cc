@@ -55,6 +55,7 @@
 #include <stdint.h>
 
 #include "db_util.h"
+#include "redis_bitmap.h"
 
 namespace redis {
 
@@ -81,16 +82,36 @@ rocksdb::Status Hyperloglog::Add(const Slice &user_key, const std::vector<Slice>
     batch->Put(metadata_cf_handle_, ns_key, bytes);
   }
 
-  SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
+  Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
   for (const auto &element : elements) {
     long register_index = 0;
     uint8_t count = hllPatLen((unsigned char *)element.data(), element.size(), &register_index);
+    uint32_t segment_index = register_index / kHyperLogLogRegisterCountPerSegment;
+    uint32_t offset_in_segment = register_index % kHyperLogLogRegisterCountPerSegment;
 
-    auto s = cache.Set(register_index, count);
+    std::string *segment = nullptr;
+    auto s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
+
+    ArrayBitfieldBitmap bitfield(offset_in_segment);
+    auto bfs = bitfield.Set(offset_in_segment, 1, reinterpret_cast<const uint8_t *>(segment->data()));
+    if (!bfs) return rocksdb::Status::InvalidArgument();
+
+    uint64_t old_count = 0;
+    auto enc = BitfieldEncoding::Create(BitfieldEncoding::Type::kUnsigned, kHyperLogLogBits).GetValue();
+    s = GetBitfieldInteger(bitfield, 0, enc, &old_count);
+    if (!s.ok()) return s;
+
+    if (count > old_count) {
+      Status _ = bitfield.SetBitfield(offset_in_segment, enc.Bits(), count);
+      auto status = bitfield.Get(offset_in_segment, 1, reinterpret_cast<uint8_t *>(segment->data()));
+      if (!status) {
+        return rocksdb::Status::InvalidArgument();
+      }
+      *ret = 1;
+    }
   }
   cache.BatchForFlush(batch);
-  *ret = cache.GetDirtyCount() > 0 ? 1 : 0;
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
 }
 
@@ -128,12 +149,14 @@ rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
     batch->Put(metadata_cf_handle_, ns_key, bytes);
   }
 
-  SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
+  Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
   for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
-    std::vector<uint8_t> registers(max.begin() + i * kHyperLogLogRegisterBytesPerSegment,
-                                   max.begin() + (i + 1) * kHyperLogLogRegisterBytesPerSegment);
-    auto s = cache.Set(i, registers);
+    std::string registers(max.begin() + i * kHyperLogLogRegisterBytesPerSegment,
+                          max.begin() + (i + 1) * kHyperLogLogRegisterBytesPerSegment);
+    std::string *segment = nullptr;
+    auto s = cache.GetMut(i, &segment);
     if (!s.ok()) return s;
+    *segment = registers;
   }
   cache.BatchForFlush(batch);
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
@@ -377,7 +400,7 @@ rocksdb::Status Hyperloglog::getRegisters(const Slice &user_key, std::vector<uin
 
     int segment_index = std::stoi(ikey.GetSubKey().ToString());
     auto val = iter->value().ToString();
-    // TODO assert the val size must be kHyperLogLogRegisterBytesPerSegment
+    // TODO assert the value size must be kHyperLogLogRegisterBytesPerSegment
     std::copy(val.begin(), val.end(), counts->data() + segment_index * kHyperLogLogRegisterBytesPerSegment);
   }
   return rocksdb::Status::OK();
