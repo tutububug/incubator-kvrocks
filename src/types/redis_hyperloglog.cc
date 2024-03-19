@@ -64,7 +64,7 @@ rocksdb::Status Hyperloglog::GetMetadata(const Slice &ns_key, HyperloglogMetadat
 }
 
 /* the max 0 pattern counter of the subset the element belongs to is incremented if needed */
-rocksdb::Status Hyperloglog::Add(const Slice &user_key, const std::vector<Slice> &elements, int *ret) {
+rocksdb::Status Hyperloglog::Add(const Slice &user_key, const std::vector<Slice> &elements, uint64_t *ret) {
   *ret = 0;
   std::string ns_key = AppendNamespacePrefix(user_key);
 
@@ -94,20 +94,19 @@ rocksdb::Status Hyperloglog::Add(const Slice &user_key, const std::vector<Slice>
     if (!s.ok()) return s;
 
     ArrayBitfieldBitmap bitfield(offset_in_segment);
-    auto bfs = bitfield.Set(offset_in_segment, 1, reinterpret_cast<const uint8_t *>(segment->data()));
-    if (!bfs) return rocksdb::Status::InvalidArgument();
+    auto sts = bitfield.Set(offset_in_segment, 1, reinterpret_cast<const uint8_t *>(segment->data()));
+    if (!sts) return rocksdb::Status::InvalidArgument(sts.Msg());
 
     uint64_t old_count = 0;
     auto enc = BitfieldEncoding::Create(BitfieldEncoding::Type::kUnsigned, kHyperLogLogBits).GetValue();
-    s = GetBitfieldInteger(bitfield, 0, enc, &old_count);
+    s = GetBitfieldInteger(bitfield, offset_in_segment, enc, &old_count);
     if (!s.ok()) return s;
 
     if (count > old_count) {
-      Status _ = bitfield.SetBitfield(offset_in_segment, enc.Bits(), count);
-      auto status = bitfield.Get(offset_in_segment, 1, reinterpret_cast<uint8_t *>(segment->data()));
-      if (!status) {
-        return rocksdb::Status::InvalidArgument();
-      }
+      auto sts = bitfield.SetBitfield(offset_in_segment, enc.Bits(), count);
+      if (!sts.IsOK()) return rocksdb::Status::InvalidArgument(sts.Msg());
+      sts = bitfield.Get(offset_in_segment, 1, reinterpret_cast<uint8_t *>(segment->data()));
+      if (!sts.IsOK()) return rocksdb::Status::InvalidArgument(sts.Msg());
       *ret = 1;
     }
   }
@@ -115,12 +114,13 @@ rocksdb::Status Hyperloglog::Add(const Slice &user_key, const std::vector<Slice>
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
 }
 
-rocksdb::Status Hyperloglog::Count(const Slice &user_key, int *ret) {
+rocksdb::Status Hyperloglog::Count(const Slice &user_key, uint64_t *ret) {
   *ret = 0;
   std::vector<uint8_t> counts(kHyperLogLogRegisterBytes);
   auto s = getRegisters(user_key, &counts);
   if (!s.ok()) return s;
-  *ret = hllCount(counts);
+  auto sts = hllCount(ret, counts);
+  if (!sts.IsOK()) return rocksdb::Status::InvalidArgument(sts.Msg());
   return rocksdb::Status::OK();
 }
 
@@ -130,7 +130,8 @@ rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
     std::vector<uint8_t> counts(kHyperLogLogRegisterBytes);
     auto s = getRegisters(user_key, &counts);
     if (!s.ok()) return s;
-    hllMerge(&max[0], counts);
+    auto sts = hllMerge(&max[0], counts);
+    if (!sts.IsOK()) return rocksdb::Status::InvalidArgument(sts.Msg());
   }
 
   std::string ns_key = AppendNamespacePrefix(user_keys[0]);
@@ -162,18 +163,12 @@ rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
 }
 
-/* Store the value of the register at position 'regnum' into variable 'target'.
- * 'p' is an array of unsigned bytes. */
-#define HLL_DENSE_GET_REGISTER(target, p, regnum)             \
-  do {                                                        \
-    uint8_t *_p = (uint8_t *)p;                               \
-    unsigned long _byte = regnum * kHyperLogLogBits / 8;              \
-    unsigned long _fb = regnum * kHyperLogLogBits & 7;                \
-    unsigned long _fb8 = 8 - _fb;                             \
-    unsigned long b0 = _p[_byte];                             \
-    unsigned long b1 = _p[_byte + 1];                         \
-    target = ((b0 >> _fb) | (b1 << _fb8)) & kHyperLogLogRegisterMax; \
-  } while (0)
+Status hllDenseGetRegister(uint8_t *count, uint8_t *registers, int index) {
+  ArrayBitfieldBitmap bitfield(index);
+  auto s = bitfield.Set(index, 1, registers);
+  if (!s.IsOK()) return s;
+  return bitfield.Get(index, 1, count);
+}
 
 /* ========================= HyperLogLog algorithm  ========================= */
 
@@ -273,12 +268,14 @@ int Hyperloglog::hllPatLen(unsigned char *ele, size_t elesize, long *regp) {
 }
 
 /* Compute the register histogram in the dense representation. */
-void hllDenseRegHisto(uint8_t *registers, int *reghisto) {
+Status hllDenseRegHisto(uint8_t *registers, int *reghisto) {
   for (uint32_t j = 0; j < kHyperLogLogRegisterCount; j++) {
-    unsigned long reg;
-    HLL_DENSE_GET_REGISTER(reg, registers, j);
+    uint8_t reg;
+    auto s = hllDenseGetRegister(&reg, registers, j);
+    if (!s.IsOK()) return s;
     reghisto[reg]++;
   }
+  return Status::OK();
 }
 
 /* ========================= HyperLogLog Count ==============================
@@ -332,7 +329,7 @@ double hllTau(double x) {
  * is, hdr->registers will point to an uint8_t array of kHyperLogLogRegisterCount element.
  * This is useful in order to speedup PFCOUNT when called against multiple
  * keys (no need to work with 6-bit integers encoding). */
-uint64_t Hyperloglog::hllCount(const std::vector<uint8_t> &counts) {
+Status Hyperloglog::hllCount(uint64_t *ret, const std::vector<uint8_t> &counts) {
   double m = kHyperLogLogRegisterCount;
   double E;
   int j;
@@ -344,7 +341,8 @@ uint64_t Hyperloglog::hllCount(const std::vector<uint8_t> &counts) {
   int reghisto[64] = {0};
 
   /* Compute register histogram */
-  hllDenseRegHisto((uint8_t *)(&counts[0]), reghisto);
+  auto sts = hllDenseRegHisto((uint8_t *)(&counts[0]), reghisto);
+  if (!sts.IsOK()) return sts;
 
   /* Estimate cardinality from register histogram. See:
    * "New cardinality estimation algorithms for HyperLogLog sketches"
@@ -357,7 +355,8 @@ uint64_t Hyperloglog::hllCount(const std::vector<uint8_t> &counts) {
   z += m * hllSigma(reghisto[0] / (double)m);
   E = llroundl(kHyperLogLogAlphaInf * m * m / z);
 
-  return (uint64_t)E;
+  *ret = (uint64_t)E;
+  return Status::OK();
 }
 
 /* Merge by computing MAX(registers[i],hll[i]) the HyperLogLog 'hll'
@@ -368,14 +367,16 @@ uint64_t Hyperloglog::hllCount(const std::vector<uint8_t> &counts) {
  *
  * If the HyperLogLog is sparse and is found to be invalid, C_ERR
  * is returned, otherwise the function always succeeds. */
-void Hyperloglog::hllMerge(uint8_t *max, const std::vector<uint8_t> &counts) {
+Status Hyperloglog::hllMerge(uint8_t *max, const std::vector<uint8_t> &counts) {
   uint8_t val;
   auto registers = (uint8_t *)(&counts[0]);
 
   for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
-    HLL_DENSE_GET_REGISTER(val, registers, i);
+    auto s = hllDenseGetRegister(&val, registers, i);
+    if (!s.IsOK()) return s;
     if (val > max[i]) max[i] = val;
   }
+  return Status::OK();
 }
 
 rocksdb::Status Hyperloglog::getRegisters(const Slice &user_key, std::vector<uint8_t> *counts) {

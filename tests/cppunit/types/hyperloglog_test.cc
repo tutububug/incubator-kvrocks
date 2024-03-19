@@ -38,7 +38,7 @@ class RedisHyperloglogTest : public TestBase {
 };
 
 TEST_F(RedisHyperloglogTest, PFADD) {
-  int ret = 0;
+  uint64_t ret = 0;
   // ASSERT_TRUE(hll_->Add("hll", {}, &ret).ok() && ret == 0);
   // Approximated cardinality after creation is zero
   // ASSERT_TRUE(hll_->Count("hll", &ret).ok() && ret == 0);
@@ -52,7 +52,7 @@ TEST_F(RedisHyperloglogTest, PFADD) {
 }
 
 TEST_F(RedisHyperloglogTest, PFCOUNT_returns_approximated_cardinality_of_set) {
-  int ret = 0;
+  uint64_t ret = 0;
   // pf add "1" to "5"
   ASSERT_TRUE(hll_->Add("hll", {"1", "2", "3", "4", "5"}, &ret).ok() && ret == 1);
   // pf count is 5
@@ -64,7 +64,7 @@ TEST_F(RedisHyperloglogTest, PFCOUNT_returns_approximated_cardinality_of_set) {
 }
 
 TEST_F(RedisHyperloglogTest, PFMERGE_results_on_the_cardinality_of_union_of_sets) {
-  int ret = 0;
+  uint64_t ret = 0;
   // pf add hll1 a b c
   ASSERT_TRUE(hll_->Add("hll1", {"a", "b", "c"}, &ret).ok() && ret == 1);
   // pf add hll2 b c d
@@ -79,12 +79,12 @@ TEST_F(RedisHyperloglogTest, PFMERGE_results_on_the_cardinality_of_union_of_sets
 
 TEST_F(RedisHyperloglogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_union_1) {
   for (int x = 1; x < 1000; x++) {
-    int ret = 0;
+    uint64_t ret = 0;
     ASSERT_TRUE(hll_->Add("hll0", {"foo-" + std::to_string(x)}, &ret).ok());
     ASSERT_TRUE(hll_->Add("hll1", {"bar-" + std::to_string(x)}, &ret).ok());
     ASSERT_TRUE(hll_->Add("hll2", {"zap-" + std::to_string(x)}, &ret).ok());
 
-    std::vector<int> cards(3);
+    std::vector<uint64_t> cards(3);
     ASSERT_TRUE(hll_->Count("hll0", &cards[0]).ok());
     ASSERT_TRUE(hll_->Count("hll1", &cards[1]).ok());
     ASSERT_TRUE(hll_->Count("hll2", &cards[2]).ok());
@@ -102,13 +102,13 @@ TEST_F(RedisHyperloglogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_
   std::unordered_set<int> realcard_set;
   for (auto i = 1; i < 1000; i++) {
     for (auto j = 0; j < 3; j++) {
-      int ret = 0;
+      uint64_t ret = 0;
       int rint = std::rand() % 20000;
       ASSERT_TRUE(hll_->Add("hll" + std::to_string(j), {std::to_string(rint)}, &ret).ok());
       realcard_set.insert(rint);
     }
   }
-  std::vector<int> cards(3);
+  std::vector<uint64_t> cards(3);
   ASSERT_TRUE(hll_->Count("hll0", &cards[0]).ok());
   ASSERT_TRUE(hll_->Count("hll1", &cards[1]).ok());
   ASSERT_TRUE(hll_->Count("hll2", &cards[2]).ok());
@@ -140,13 +140,13 @@ private:
 
 TEST_F(RedisHyperloglogTest, time_cost) {
   for (int x = 1; x < 1000000; x++) {
-    int ret = 0;
+    uint64_t ret = 0;
     {
       Timer timer("add 1");
       ASSERT_TRUE(hll_->Add("hll0", {"foo-" + std::to_string(x)}, &ret).ok());
     }
 
-    int card = 0;
+    uint64_t card = 0;
     {
       Timer timer("count");
       ASSERT_TRUE(hll_->Count("hll0", &card).ok());

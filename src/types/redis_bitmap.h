@@ -35,9 +35,13 @@ enum BitOpFlags {
   kBitOpNot,
 };
 
+namespace redis {
+
 rocksdb::Status GetBitfieldInteger(const ArrayBitfieldBitmap &bitfield, uint32_t bit_offset,
                                    BitfieldEncoding enc, uint64_t *res);
-namespace redis {
+
+constexpr uint32_t kBitmapSegmentBits = 1024 * 8;
+constexpr uint32_t kBitmapSegmentBytes = 1024;
 
 // We use least-significant bit (LSB) numbering (also known as bit-endianness).
 // This means that within a group of 8 bits, we read right-to-left.

@@ -31,9 +31,6 @@
 
 namespace redis {
 
-constexpr uint32_t kBitmapSegmentBits = 1024 * 8;
-constexpr uint32_t kBitmapSegmentBytes = 1024;
-
 constexpr char kErrBitmapStringOutOfRange[] =
     "The size of the bitmap string exceeds the "
     "configuration item max-bitmap-to-string-mb";
