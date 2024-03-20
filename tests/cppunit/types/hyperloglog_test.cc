@@ -37,11 +37,11 @@ class RedisHyperloglogTest : public TestBase {
   std::unique_ptr<redis::Hyperloglog> hll_;
 };
 
-TEST_F(RedisHyperloglogTest, add_and_count) {
+TEST_F(RedisHyperloglogTest, PFADD) {
   uint64_t ret = 0;
-   ASSERT_TRUE(hll_->Add("hll", {}, &ret).ok() && ret == 0);
+  ASSERT_TRUE(hll_->Add("hll", {}, &ret).ok() && ret == 0);
   // Approximated cardinality after creation is zero
-   ASSERT_TRUE(hll_->Count("hll", &ret).ok() && ret == 0);
+  ASSERT_TRUE(hll_->Count("hll", &ret).ok() && ret == 0);
   // PFADD returns 1 when at least 1 reg was modified
   ASSERT_TRUE(hll_->Add("hll", {"a", "b", "c"}, &ret).ok() && ret == 1);
   ASSERT_TRUE(hll_->Count("hll", &ret).ok() && ret == 3);

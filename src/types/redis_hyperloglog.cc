@@ -55,7 +55,6 @@
 #include <stdint.h>
 
 #include "db_util.h"
-#include "redis_bitmap.h"
 
 namespace redis {
 
@@ -93,10 +92,16 @@ rocksdb::Status Hyperloglog::Add(const Slice &user_key, const std::vector<Slice>
     // get segment
     auto s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
+    // segment key not found
+    if (segment->size() == 0) {
+      std::string seg(kHyperLogLogRegisterBytesPerSegment, 0);
+      cache.Set(segment_index, seg);
+      cache.GetMut(segment_index, &segment);
+    }
 
     ArrayBitfieldBitmap bitfield(register_index_in_segment);
     // write old_count to bitfield
-    auto sts = bitfield.Set(register_index_in_segment, 1, reinterpret_cast<const uint8_t *>(segment->data()));
+    auto sts = bitfield.Set(register_index_in_segment, 1, reinterpret_cast<const uint8_t *>(segment->data()+register_index_in_segment));
     if (!sts) return rocksdb::Status::InvalidArgument(sts.Msg());
 
     uint64_t old_count = 0;
@@ -110,7 +115,7 @@ rocksdb::Status Hyperloglog::Add(const Slice &user_key, const std::vector<Slice>
       auto sts = bitfield.SetBitfield(register_index_in_segment * kHyperLogLogBits, enc.Bits(), count);
       if (!sts.IsOK()) return rocksdb::Status::InvalidArgument(sts.Msg());
       // write bitfield to segment
-      sts = bitfield.Get(register_index_in_segment, 1, reinterpret_cast<uint8_t *>(segment->data()));
+      sts = bitfield.Get(register_index_in_segment, 1, reinterpret_cast<uint8_t *>(segment->data()+register_index_in_segment));
       if (!sts.IsOK()) return rocksdb::Status::InvalidArgument(sts.Msg());
       *ret = 1;
     }
@@ -170,7 +175,7 @@ rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
 
 Status hllDenseGetRegister(uint8_t *count, uint8_t *registers, int index) {
   ArrayBitfieldBitmap bitfield(index);
-  auto s = bitfield.Set(index, 1, registers);
+  auto s = bitfield.Set(index, 1, registers+index);
   if (!s.IsOK()) return s;
   return bitfield.Get(index, 1, count);
 }
@@ -404,10 +409,10 @@ rocksdb::Status Hyperloglog::getRegisters(const Slice &user_key, std::vector<uin
   for (iter->Seek(prefix); iter->Valid() && iter->key().starts_with(prefix); iter->Next()) {
     InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
 
-    int segment_index = std::stoi(ikey.GetSubKey().ToString());
+    int register_index = std::stoi(ikey.GetSubKey().ToString());
     auto val = iter->value().ToString();
     // TODO assert the value size must be kHyperLogLogRegisterBytesPerSegment
-    std::copy(val.begin(), val.end(), counts->data() + segment_index * kHyperLogLogRegisterBytesPerSegment);
+    std::copy(val.begin(), val.end(), counts->data() + register_index);
   }
   return rocksdb::Status::OK();
 }
