@@ -87,25 +87,30 @@ rocksdb::Status Hyperloglog::Add(const Slice &user_key, const std::vector<Slice>
     long register_index = 0;
     uint8_t count = hllPatLen((unsigned char *)element.data(), element.size(), &register_index);
     uint32_t segment_index = register_index / kHyperLogLogRegisterCountPerSegment;
-    uint32_t offset_in_segment = register_index % kHyperLogLogRegisterCountPerSegment;
+    uint32_t register_index_in_segment = register_index % kHyperLogLogRegisterCountPerSegment;
 
     std::string *segment = nullptr;
+    // get segment
     auto s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
 
-    ArrayBitfieldBitmap bitfield(offset_in_segment);
-    auto sts = bitfield.Set(offset_in_segment, 1, reinterpret_cast<const uint8_t *>(segment->data()));
+    ArrayBitfieldBitmap bitfield(register_index_in_segment);
+    // write old_count to bitfield
+    auto sts = bitfield.Set(register_index_in_segment, 1, reinterpret_cast<const uint8_t *>(segment->data()));
     if (!sts) return rocksdb::Status::InvalidArgument(sts.Msg());
 
     uint64_t old_count = 0;
     auto enc = BitfieldEncoding::Create(BitfieldEncoding::Type::kUnsigned, kHyperLogLogBits).GetValue();
-    s = GetBitfieldInteger(bitfield, offset_in_segment, enc, &old_count);
+    // get old_count as integer
+    s = GetBitfieldInteger(bitfield, register_index_in_segment * kHyperLogLogBits, enc, &old_count);
     if (!s.ok()) return s;
 
     if (count > old_count) {
-      auto sts = bitfield.SetBitfield(offset_in_segment, enc.Bits(), count);
+      // write count to bitfield
+      auto sts = bitfield.SetBitfield(register_index_in_segment * kHyperLogLogBits, enc.Bits(), count);
       if (!sts.IsOK()) return rocksdb::Status::InvalidArgument(sts.Msg());
-      sts = bitfield.Get(offset_in_segment, 1, reinterpret_cast<uint8_t *>(segment->data()));
+      // write bitfield to segment
+      sts = bitfield.Get(register_index_in_segment, 1, reinterpret_cast<uint8_t *>(segment->data()));
       if (!sts.IsOK()) return rocksdb::Status::InvalidArgument(sts.Msg());
       *ret = 1;
     }

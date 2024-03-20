@@ -342,11 +342,11 @@ class HyperloglogMetadata : public Metadata {
     SPARSE = 1,
   };
 
-  explicit HyperloglogMetadata(EncodeType encode_type = EncodeType::DENSE, bool generate_version = true) : Metadata(kRedisHyperloglog, generate_version), encode_type_(encode_type) {
-    size = static_cast<uint64_t>(kHyperLogLogRegisterCount);  // 'size' must non-zone, or 'GetMetadata' will failed as 'expired'.
+  explicit HyperloglogMetadata(EncodeType encode_type = EncodeType::DENSE, bool generate_version = true) : Metadata(kRedisHyperloglog, generate_version) {
+    size = 1;  // 'size' must non-zone, or 'GetMetadata' will failed as 'expired'.
   }
 
 private:
  // TODO optimize for converting storage encoding automatically
- EncodeType encode_type_;
+// EncodeType encode_type_;
 };

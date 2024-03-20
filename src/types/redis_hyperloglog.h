@@ -23,12 +23,11 @@
 #include "bitfield_util.h"
 #include "storage/redis_db.h"
 #include "storage/redis_metadata.h"
-#include "redis_bitmap.h"
 
 namespace redis {
 
 constexpr uint32_t kHyperLogLogRegisterCountMask = kHyperLogLogRegisterCount - 1; /* Mask to index register. */
-constexpr uint32_t kHyperLogLogBits = 6;
+constexpr uint32_t kHyperLogLogBits = 8;
 constexpr uint32_t kHyperLogLogRegisterMax = ((1 << kHyperLogLogBits) - 1);
 constexpr double kHyperLogLogAlphaInf = 0.721347520444481703680; /* constant for 0.5/ln(2) */
 constexpr uint32_t kHyperLogLogSegmentCount = 16;
