@@ -58,6 +58,42 @@
 
 namespace redis {
 
+/* Store the value of the register at position 'regnum' into variable 'target'.
+ * 'p' is an array of unsigned bytes. */
+#define HLL_DENSE_GET_REGISTER(target,p,regnum) do { \
+    uint8_t *_p = (uint8_t*) p; \
+    unsigned long _byte = regnum*kHyperLogLogBits/8; \
+    unsigned long _fb = regnum*kHyperLogLogBits&7; \
+    unsigned long _fb8 = 8 - _fb; \
+    unsigned long b0 = _p[_byte]; \
+    unsigned long b1 = _p[_byte+1]; \
+    target = ((b0 >> _fb) | (b1 << _fb8)) & kHyperLogLogRegisterMax; \
+} while(0)
+
+/* Set the value of the register at position 'regnum' to 'val'.
+ * 'p' is an array of unsigned bytes. */
+#define HLL_DENSE_SET_REGISTER(p,regnum,val) do { \
+    uint8_t *_p = (uint8_t*) p; \
+    unsigned long _byte = regnum*kHyperLogLogBits/8; \
+    unsigned long _fb = regnum*kHyperLogLogBits&7; \
+    unsigned long _fb8 = 8 - _fb; \
+    unsigned long _v = val; \
+    _p[_byte] &= ~(kHyperLogLogRegisterMax<< _fb); \
+    _p[_byte] |= _v << _fb; \
+    _p[_byte+1] &= ~(kHyperLogLogRegisterMax>> _fb8); \
+    _p[_byte+1] |= _v >> _fb8; \
+} while(0)
+
+void hllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
+  uint8_t v = 0;
+  HLL_DENSE_GET_REGISTER(v, registers, index);
+  *val = v;
+}
+
+void hllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
+  HLL_DENSE_SET_REGISTER(registers, index, val);
+}
+
 rocksdb::Status Hyperloglog::GetMetadata(const Slice &ns_key, HyperloglogMetadata *metadata) {
   return Database::GetMetadata({kRedisHyperloglog}, ns_key, metadata);
 }
@@ -89,34 +125,18 @@ rocksdb::Status Hyperloglog::Add(const Slice &user_key, const std::vector<Slice>
     uint32_t register_index_in_segment = register_index % kHyperLogLogRegisterCountPerSegment;
 
     std::string *segment = nullptr;
-    // get segment
     auto s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
-    // segment key not found
     if (segment->size() == 0) {
       std::string seg(kHyperLogLogRegisterBytesPerSegment, 0);
       cache.Set(segment_index, seg);
       cache.GetMut(segment_index, &segment);
     }
 
-    ArrayBitfieldBitmap bitfield(register_index_in_segment);
-    // write old_count to bitfield
-    auto sts = bitfield.Set(register_index_in_segment, 1, reinterpret_cast<const uint8_t *>(segment->data()+register_index_in_segment));
-    if (!sts) return rocksdb::Status::InvalidArgument(sts.Msg());
-
-    uint64_t old_count = 0;
-    auto enc = BitfieldEncoding::Create(BitfieldEncoding::Type::kUnsigned, kHyperLogLogBits).GetValue();
-    // get old_count as integer
-    s = GetBitfieldInteger(bitfield, register_index_in_segment * kHyperLogLogBits, enc, &old_count);
-    if (!s.ok()) return s;
-
+    uint8_t old_count = 0;
+    hllDenseGetRegister(&old_count, reinterpret_cast<uint8_t *>(segment->data()), register_index_in_segment);
     if (count > old_count) {
-      // write count to bitfield
-      auto sts = bitfield.SetBitfield(register_index_in_segment * kHyperLogLogBits, enc.Bits(), count);
-      if (!sts.IsOK()) return rocksdb::Status::InvalidArgument(sts.Msg());
-      // write bitfield to segment
-      sts = bitfield.Get(register_index_in_segment, 1, reinterpret_cast<uint8_t *>(segment->data()+register_index_in_segment));
-      if (!sts.IsOK()) return rocksdb::Status::InvalidArgument(sts.Msg());
+      hllDenseSetRegister(reinterpret_cast<uint8_t *>(segment->data()), register_index_in_segment, count);
       *ret = 1;
     }
   }
@@ -161,11 +181,11 @@ rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
   }
 
   Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
-  for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
-    std::string registers(max.begin() + i * kHyperLogLogRegisterBytesPerSegment,
-                          max.begin() + (i + 1) * kHyperLogLogRegisterBytesPerSegment);
+  for (uint32_t segment_index = 0; segment_index < kHyperLogLogSegmentCount; segment_index++) {
+    std::string registers(max.begin() + segment_index * kHyperLogLogRegisterBytesPerSegment,
+                          max.begin() + (segment_index + 1) * kHyperLogLogRegisterBytesPerSegment);
     std::string *segment = nullptr;
-    auto s = cache.GetMut(i, &segment);
+    auto s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
     *segment = registers;
   }
@@ -173,12 +193,6 @@ rocksdb::Status Hyperloglog::Merge(const std::vector<Slice> &user_keys) {
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
 }
 
-Status hllDenseGetRegister(uint8_t *count, uint8_t *registers, int index) {
-  ArrayBitfieldBitmap bitfield(index);
-  auto s = bitfield.Set(index, 1, registers+index);
-  if (!s.IsOK()) return s;
-  return bitfield.Get(index, 1, count);
-}
 
 /* ========================= HyperLogLog algorithm  ========================= */
 
@@ -281,8 +295,7 @@ int Hyperloglog::hllPatLen(unsigned char *ele, size_t elesize, long *regp) {
 Status hllDenseRegHisto(uint8_t *registers, int *reghisto) {
   for (uint32_t j = 0; j < kHyperLogLogRegisterCount; j++) {
     uint8_t reg;
-    auto s = hllDenseGetRegister(&reg, registers, j);
-    if (!s.IsOK()) return s;
+    hllDenseGetRegister(&reg, registers, j);
     reghisto[reg]++;
   }
   return Status::OK();
@@ -378,13 +391,15 @@ Status Hyperloglog::hllCount(uint64_t *ret, const std::vector<uint8_t> &counts) 
  * If the HyperLogLog is sparse and is found to be invalid, C_ERR
  * is returned, otherwise the function always succeeds. */
 Status Hyperloglog::hllMerge(uint8_t *max, const std::vector<uint8_t> &counts) {
-  uint8_t val;
+  uint8_t val, max_val;
   auto registers = (uint8_t *)(&counts[0]);
 
   for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
-    auto s = hllDenseGetRegister(&val, registers, i);
-    if (!s.IsOK()) return s;
-    if (val > max[i]) max[i] = val;
+    hllDenseGetRegister(&val, registers, i);
+    hllDenseGetRegister(&max_val, max, i);
+    if (val > max[i]) {
+      hllDenseSetRegister(max, i, val);
+    }
   }
   return Status::OK();
 }
@@ -399,20 +414,23 @@ rocksdb::Status Hyperloglog::getRegisters(const Slice &user_key, std::vector<uin
   std::string prefix = InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode();
   std::string next_version_prefix = InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded()).Encode();
 
-  rocksdb::ReadOptions read_options;
+  rocksdb::ReadOptions read_options = storage_->DefaultScanOptions();
   LatestSnapShot ss(storage_);
   read_options.snapshot = ss.GetSnapShot();
   rocksdb::Slice upper_bound(next_version_prefix);
   read_options.iterate_upper_bound = &upper_bound;
 
   auto iter = util::UniqueIterator(storage_, read_options);
-  for (iter->Seek(prefix); iter->Valid() && iter->key().starts_with(prefix); iter->Next()) {
+  for (iter->Seek(prefix);
+       iter->Valid() && iter->key().starts_with(prefix);
+       iter->Next()) {
     InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
 
     int register_index = std::stoi(ikey.GetSubKey().ToString());
-    auto val = iter->value().ToString();
     // TODO assert the value size must be kHyperLogLogRegisterBytesPerSegment
-    std::copy(val.begin(), val.end(), counts->data() + register_index);
+    auto val = iter->value().ToString();
+    auto register_byte_offset = register_index / 8 * kHyperLogLogBits;
+    std::copy(val.begin(), val.end(), counts->data() + register_byte_offset);
   }
   return rocksdb::Status::OK();
 }

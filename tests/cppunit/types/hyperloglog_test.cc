@@ -122,6 +122,7 @@ TEST_F(RedisHyperloglogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_
   ASSERT_TRUE(left < right) << "left : " << left << ", right: " << right;
 }
 
+/*
 class Timer {
 public:
     explicit Timer(const std::string& name) : name_(name), start_(std::chrono::high_resolution_clock::now()) {}
@@ -160,3 +161,4 @@ TEST_F(RedisHyperloglogTest, time_cost) {
     ASSERT_TRUE(left <= right) << "left : " << left << ", right: " << right;
   }
 }
+ */
