@@ -20,10 +20,9 @@
 
 #pragma once
 
-#include "bitfield_util.h"
+#include "redis_bitmap.h"
 #include "storage/redis_db.h"
 #include "storage/redis_metadata.h"
-#include "redis_bitmap.h"
 
 namespace redis {
 
@@ -38,20 +37,20 @@ constexpr double kHyperLogLogAlphaInf = 0.721347520444481703680; /* constant for
 constexpr uint32_t kHyperLogLogRegisterBytesPerSegment = kHyperLogLogRegisterCountPerSegment * kHyperLogLogBits / 8;
 constexpr uint32_t kHyperLogLogRegisterBytes = kHyperLogLogRegisterCount * kHyperLogLogBits / 8;
 
-class Hyperloglog : public Database {
+class HyperLogLog : public Database {
  public:
-  explicit Hyperloglog(engine::Storage *storage, const std::string &ns) : Database(storage, ns) {}
-  rocksdb::Status Add(const Slice &user_key, const std::vector<Slice> &elements, uint64_t *ret);
-  rocksdb::Status Count(const Slice &user_key, uint64_t *ret);
+  explicit HyperLogLog(engine::Storage *storage, const std::string &ns) : Database(storage, ns) {}
+  rocksdb::Status Add(const Slice &user_key, const std::vector<Slice> &elements, uint8_t *ret);
+  rocksdb::Status Count(const Slice &user_key, uint8_t *ret);
   rocksdb::Status Merge(const std::vector<Slice> &user_keys);
 
- private:
-  Status hllCount(uint64_t *ret, const std::vector<uint8_t> &counts);
-  Status hllMerge(uint8_t *max, const std::vector<uint8_t> &counts);
-  rocksdb::Status getRegisters(const Slice &user_key, std::vector<uint8_t> *registers);
+  static uint8_t hllCount(const std::vector<uint8_t> &registers);
+  static void hllMerge(std::vector<uint8_t> *registers_max, const std::vector<uint8_t> &registers);
+  static uint8_t hllPatLen(const std::vector<uint8_t> &element, uint32_t *register_index);
 
+ private:
   rocksdb::Status GetMetadata(const Slice &ns_key, HyperloglogMetadata *metadata);
-  int hllPatLen(unsigned char *ele, size_t elesize, long *regp);
+  rocksdb::Status getRegisters(const Slice &user_key, std::vector<uint8_t> *registers);
 };
 
 }  // namespace redis

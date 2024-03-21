@@ -37,9 +37,6 @@ enum BitOpFlags {
 
 namespace redis {
 
-rocksdb::Status GetBitfieldInteger(const ArrayBitfieldBitmap &bitfield, uint32_t bit_offset,
-                                   BitfieldEncoding enc, uint64_t *res);
-
 constexpr uint32_t kBitmapSegmentBits = 1024 * 8;
 constexpr uint32_t kBitmapSegmentBytes = 1024;
 
@@ -96,7 +93,7 @@ class Bitmap::SegmentCacheStore {
         metadata_(bitmap_metadata) {}
 
   // Set a segment by given index
-  void Set(uint32_t index, const std::string& segment) {
+  void Set(uint32_t index, const std::string &segment) {
     auto [seg_itor, _] = cache_.try_emplace(index);
     auto &[__, str] = seg_itor->second;
     str = segment;

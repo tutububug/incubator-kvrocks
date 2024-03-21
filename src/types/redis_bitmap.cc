@@ -635,7 +635,7 @@ static rocksdb::Status CopySegmentsBytesToBitfield(Bitmap::SegmentCacheStore &st
   return rocksdb::Status::OK();
 }
 
-rocksdb::Status GetBitfieldInteger(const ArrayBitfieldBitmap &bitfield, uint32_t bit_offset,
+static rocksdb::Status GetBitfieldInteger(const ArrayBitfieldBitmap &bitfield, uint32_t bit_offset,
                                           BitfieldEncoding enc, uint64_t *res) {
   if (enc.IsSigned()) {
     auto status = bitfield.GetSignedBitfield(bit_offset, enc.Bits());

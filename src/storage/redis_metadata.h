@@ -50,7 +50,7 @@ enum RedisType : uint8_t {
   kRedisBloomFilter = 9,
   kRedisJson = 10,
   kRedisSearch = 11,
-  kRedisHyperloglog = 12,
+  kRedisHyperLogLog = 12,
 };
 
 struct RedisTypes {
@@ -332,7 +332,9 @@ class SearchMetadata : public Metadata {
 };
 
 constexpr uint32_t kHyperLogLogRegisterCountPow = 14; /* The greater is Pow, the smaller the error. */
-constexpr uint32_t kHyperLogLogHashBitCount = 64 - kHyperLogLogRegisterCountPow; /* The number of bits of the hash value used for determining the number of leading zeros. */
+constexpr uint32_t kHyperLogLogHashBitCount =
+    64 - kHyperLogLogRegisterCountPow; /* The number of bits of the hash value used for determining the number of
+                                          leading zeros. */
 constexpr uint32_t kHyperLogLogRegisterCount = 1 << kHyperLogLogRegisterCountPow; /* With Pow=14, 16384 registers. */
 
 class HyperloglogMetadata : public Metadata {
@@ -342,11 +344,12 @@ class HyperloglogMetadata : public Metadata {
     SPARSE = 1,
   };
 
-  explicit HyperloglogMetadata(EncodeType encode_type = EncodeType::DENSE, bool generate_version = true) : Metadata(kRedisHyperloglog, generate_version) {
+  explicit HyperloglogMetadata(EncodeType encode_type = EncodeType::DENSE, bool generate_version = true)
+      : Metadata(kRedisHyperLogLog, generate_version) {
     size = 1;  // 'size' must non-zone, or 'GetMetadata' will failed as 'expired'.
   }
 
-private:
- // TODO optimize for converting storage encoding automatically
-// EncodeType encode_type_;
+ private:
+  // TODO optimize for converting storage encoding automatically
+  // EncodeType encode_type_;
 };
