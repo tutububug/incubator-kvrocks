@@ -87,15 +87,13 @@ namespace redis {
     _p[_byte + 1] |= _v >> _fb8;                         \
   } while (0)
 
-void hllDenseGetRegister(uint8_t *val, const std::vector<uint8_t> &regs, uint32_t index) {
+void hllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
   uint8_t v = 0;
-  uint8_t *registers = const_cast<uint8_t *>(regs.data());
   HLL_DENSE_GET_REGISTER(v, registers, index);
   *val = v;
 }
 
-void hllDenseSetRegister(std::vector<uint8_t> *regs, uint32_t index, uint8_t val) {
-  uint8_t *registers = regs->data();
+void hllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
   HLL_DENSE_SET_REGISTER(registers, index, val);
 }
 
@@ -104,7 +102,7 @@ rocksdb::Status HyperLogLog::GetMetadata(const Slice &ns_key, HyperloglogMetadat
 }
 
 /* the max 0 pattern counter of the subset the element belongs to is incremented if needed */
-rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice> &elements, uint8_t *ret) {
+rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice> &elements, uint64_t *ret) {
   *ret = 0;
   std::string ns_key = AppendNamespacePrefix(user_key);
 
@@ -125,25 +123,25 @@ rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice>
   Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
   for (const auto &element : elements) {
     uint32_t register_index = 0;
-    std::vector<uint8_t> ele(element.ToString().begin(), element.ToString().end());
+    auto ele_str = element.ToString();
+    std::vector<uint8_t> ele(ele_str.begin(), ele_str.end());
     uint8_t count = hllPatLen(ele, &register_index);
     uint32_t segment_index = register_index / kHyperLogLogRegisterCountPerSegment;
     uint32_t register_index_in_segment = register_index % kHyperLogLogRegisterCountPerSegment;
 
-    std::string *segment_str = nullptr;
-    auto s = cache.GetMut(segment_index, &segment_str);
+    std::string *segment = nullptr;
+    auto s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
-    if (segment_str->size() == 0) {
+    if (segment->size() == 0) {
       std::string seg(kHyperLogLogRegisterBytesPerSegment, 0);
       cache.Set(segment_index, seg);
-      cache.GetMut(segment_index, &segment_str);
+      cache.GetMut(segment_index, &segment);
     }
 
     uint8_t old_count = 0;
-    std::vector<uint8_t> segment(segment_str->begin(), segment_str->end());
-    hllDenseGetRegister(&old_count, segment, register_index_in_segment);
+    hllDenseGetRegister(&old_count, reinterpret_cast<uint8_t *>(segment->data()), register_index_in_segment);
     if (count > old_count) {
-      hllDenseSetRegister(&segment, register_index_in_segment, count);
+      hllDenseSetRegister(reinterpret_cast<uint8_t *>(segment->data()), register_index_in_segment, count);
       *ret = 1;
     }
   }
@@ -151,7 +149,7 @@ rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice>
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
 }
 
-rocksdb::Status HyperLogLog::Count(const Slice &user_key, uint8_t *ret) {
+rocksdb::Status HyperLogLog::Count(const Slice &user_key, uint64_t *ret) {
   *ret = 0;
   std::vector<uint8_t> registers(kHyperLogLogRegisterBytes);
   auto s = getRegisters(user_key, &registers);
@@ -235,7 +233,7 @@ uint8_t HyperLogLog::hllPatLen(const std::vector<uint8_t> &ele, uint32_t *regp) 
 }
 
 /* Compute the register histogram in the dense representation. */
-void hllDenseRegHisto(const std::vector<uint8_t> &registers, int *reghisto) {
+void hllDenseRegHisto(uint8_t *registers, int *reghisto) {
   for (uint32_t j = 0; j < kHyperLogLogRegisterCount; j++) {
     uint8_t reg = 0;
     hllDenseGetRegister(&reg, registers, j);
@@ -285,7 +283,7 @@ double hllTau(double x) {
 
 /* Return the approximated cardinality of the set based on the harmonic
  * mean of the registers values. */
-uint8_t HyperLogLog::hllCount(const std::vector<uint8_t> &registers) {
+uint64_t HyperLogLog::hllCount(const std::vector<uint8_t> &registers) {
   double m = kHyperLogLogRegisterCount;
   double E;
   int j;
@@ -297,7 +295,7 @@ uint8_t HyperLogLog::hllCount(const std::vector<uint8_t> &registers) {
   int reghisto[64] = {0};
 
   /* Compute register histogram */
-  hllDenseRegHisto(registers, reghisto);
+  hllDenseRegHisto((uint8_t *)(registers.data()), reghisto);
 
   /* Estimate cardinality from register histogram. See:
    * "New cardinality estimation algorithms for HyperLogLog sketches"
@@ -310,7 +308,7 @@ uint8_t HyperLogLog::hllCount(const std::vector<uint8_t> &registers) {
   z += m * hllSigma(reghisto[0] / (double)m);
   E = llroundl(kHyperLogLogAlphaInf * m * m / z);
 
-  return (uint8_t)E;
+  return (uint64_t)E;
 }
 
 /* Merge by computing MAX(registers[i],hll[i]) the HyperLogLog 'hll'
@@ -322,10 +320,10 @@ void HyperLogLog::hllMerge(std::vector<uint8_t> *max, const std::vector<uint8_t>
   uint8_t val, max_val;
 
   for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
-    hllDenseGetRegister(&val, registers, i);
-    hllDenseGetRegister(&max_val, *max, i);
+    hllDenseGetRegister(&val, (uint8_t *)(registers.data()), i);
+    hllDenseGetRegister(&max_val, reinterpret_cast<uint8_t *>(max->data()), i);
     if (val > max->data()[i]) {
-      hllDenseSetRegister(max, i, val);
+      hllDenseSetRegister(reinterpret_cast<uint8_t *>(max->data()), i, val);
     }
   }
 }

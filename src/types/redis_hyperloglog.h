@@ -40,11 +40,11 @@ constexpr uint32_t kHyperLogLogRegisterBytes = kHyperLogLogRegisterCount * kHype
 class HyperLogLog : public Database {
  public:
   explicit HyperLogLog(engine::Storage *storage, const std::string &ns) : Database(storage, ns) {}
-  rocksdb::Status Add(const Slice &user_key, const std::vector<Slice> &elements, uint8_t *ret);
-  rocksdb::Status Count(const Slice &user_key, uint8_t *ret);
+  rocksdb::Status Add(const Slice &user_key, const std::vector<Slice> &elements, uint64_t *ret);
+  rocksdb::Status Count(const Slice &user_key, uint64_t *ret);
   rocksdb::Status Merge(const std::vector<Slice> &user_keys);
 
-  static uint8_t hllCount(const std::vector<uint8_t> &registers);
+  static uint64_t hllCount(const std::vector<uint8_t> &registers);
   static void hllMerge(std::vector<uint8_t> *registers_max, const std::vector<uint8_t> &registers);
   static uint8_t hllPatLen(const std::vector<uint8_t> &element, uint32_t *register_index);
 
