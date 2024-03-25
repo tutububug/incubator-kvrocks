@@ -62,27 +62,25 @@ namespace redis {
 /* Store the value of the register at position 'regnum' into variable 'target'.
  * 'p' is an array of unsigned bytes. */
 void HllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
-  auto *p = (uint8_t *)registers;
   unsigned long byte = index * kHyperLogLogBits / 8;
   unsigned long fb = index * kHyperLogLogBits & 7;
   unsigned long fb8 = 8 - fb;
-  unsigned long b0 = p[byte];
-  unsigned long b1 = p[byte + 1];
+  unsigned long b0 = registers[byte];
+  unsigned long b1 = registers[byte + 1];
   *val = ((b0 >> fb) | (b1 << fb8)) & kHyperLogLogRegisterMax;
 }
 
 /* Set the value of the register at position 'regnum' to 'val'.
  * 'p' is an array of unsigned bytes. */
 void HllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
-  auto *p = (uint8_t *)registers;
   unsigned long byte = index * kHyperLogLogBits / 8;
   unsigned long fb = index * kHyperLogLogBits & 7;
   unsigned long fb8 = 8 - fb;
   unsigned long v = val;
-  p[byte] &= ~(kHyperLogLogRegisterMax << fb);
-  p[byte] |= v << fb;
-  p[byte + 1] &= ~(kHyperLogLogRegisterMax >> fb8);
-  p[byte + 1] |= v >> fb8;
+  registers[byte] &= ~(kHyperLogLogRegisterMax << fb);
+  registers[byte] |= v << fb;
+  registers[byte + 1] &= ~(kHyperLogLogRegisterMax >> fb8);
+  registers[byte + 1] |= v >> fb8;
 }
 
 rocksdb::Status HyperLogLog::GetMetadata(const Slice &ns_key, HyperloglogMetadata *metadata) {
