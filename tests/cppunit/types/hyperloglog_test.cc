@@ -87,7 +87,7 @@ TEST_F(RedisHyperloglogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_
     ASSERT_TRUE(hll_->Count("hll1", &cards[1]).ok());
     ASSERT_TRUE(hll_->Count("hll2", &cards[2]).ok());
 
-    double card = static_cast<double>(cards[0] + cards[1] + cards[2]);
+    auto card = static_cast<double>(cards[0] + cards[1] + cards[2]);
     double realcard = x * 3;
     // assert the ABS of 'card' and 'realcart' is within 5% of the cardinality
     double left = std::abs(card - realcard);
@@ -111,8 +111,8 @@ TEST_F(RedisHyperloglogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_
   ASSERT_TRUE(hll_->Count("hll1", &cards[1]).ok());
   ASSERT_TRUE(hll_->Count("hll2", &cards[2]).ok());
 
-  double card = static_cast<double>(cards[0] + cards[1] + cards[2]);
-  double realcard = static_cast<double>(realcard_set.size());
+  auto card = static_cast<double>(cards[0] + cards[1] + cards[2]);
+  auto realcard = static_cast<double>(realcard_set.size());
   double left = std::abs(card - realcard);
   // TODO when 'right = card / 100 * 5', the test run failed that the ABS is
   // a little larger than 'card * 0.05' (left : 149, right: 146.30000000000001).
