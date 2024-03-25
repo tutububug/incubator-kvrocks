@@ -62,27 +62,27 @@ namespace redis {
 /* Store the value of the register at position 'regnum' into variable 'target'.
  * 'p' is an array of unsigned bytes. */
 void hllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
-  uint8_t *_p = (uint8_t *)registers;
-  unsigned long _byte = index * kHyperLogLogBits / 8;
-  unsigned long _fb = index * kHyperLogLogBits & 7;
-  unsigned long _fb8 = 8 - _fb;
-  unsigned long b0 = _p[_byte];
-  unsigned long b1 = _p[_byte + 1];
-  *val = ((b0 >> _fb) | (b1 << _fb8)) & kHyperLogLogRegisterMax;
+  auto *p = (uint8_t *)registers;
+  unsigned long byte = index * kHyperLogLogBits / 8;
+  unsigned long fb = index * kHyperLogLogBits & 7;
+  unsigned long fb8 = 8 - fb;
+  unsigned long b0 = p[byte];
+  unsigned long b1 = p[byte + 1];
+  *val = ((b0 >> fb) | (b1 << fb8)) & kHyperLogLogRegisterMax;
 }
 
 /* Set the value of the register at position 'regnum' to 'val'.
  * 'p' is an array of unsigned bytes. */
 void hllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
-  uint8_t *_p = (uint8_t *)registers;
-  unsigned long _byte = index * kHyperLogLogBits / 8;
-  unsigned long _fb = index * kHyperLogLogBits & 7;
-  unsigned long _fb8 = 8 - _fb;
-  unsigned long _v = val;
-  _p[_byte] &= ~(kHyperLogLogRegisterMax << _fb);
-  _p[_byte] |= _v << _fb;
-  _p[_byte + 1] &= ~(kHyperLogLogRegisterMax >> _fb8);
-  _p[_byte + 1] |= _v >> _fb8;
+  auto *p = (uint8_t *)registers;
+  unsigned long byte = index * kHyperLogLogBits / 8;
+  unsigned long fb = index * kHyperLogLogBits & 7;
+  unsigned long fb8 = 8 - fb;
+  unsigned long v = val;
+  p[byte] &= ~(kHyperLogLogRegisterMax << fb);
+  p[byte] |= v << fb;
+  p[byte + 1] &= ~(kHyperLogLogRegisterMax >> fb8);
+  p[byte + 1] |= v >> fb8;
 }
 
 rocksdb::Status HyperLogLog::GetMetadata(const Slice &ns_key, HyperloglogMetadata *metadata) {
@@ -190,9 +190,9 @@ rocksdb::Status HyperLogLog::Merge(const std::vector<Slice> &user_keys) {
  * of the pattern 000..1 of the element hash. As a side effect 'regp' is
  * set to the register index this element hashes to. */
 uint8_t HyperLogLog::HllPatLen(const std::vector<uint8_t> &element, uint32_t *register_index) {
-  size_t elesize = element.size();
-  uint64_t hash, bit, index;
-  int count;
+  int elesize = element.size();
+  uint64_t hash = 0, bit = 0, index = 0;
+  int count = 0;
 
   /* Count the number of zeroes starting from bit kHyperLogLogRegisterCount
    * (that is a power of two corresponding to the first bit we don't use
@@ -221,7 +221,7 @@ uint8_t HyperLogLog::HllPatLen(const std::vector<uint8_t> &element, uint32_t *re
 }
 
 /* Compute the register histogram in the dense representation. */
-void hllDenseRegHisto(uint8_t *registers, int *reghisto) {
+void HllDenseRegHisto(uint8_t *registers, int *reghisto) {
   for (uint32_t j = 0; j < kHyperLogLogRegisterCount; j++) {
     uint8_t reg = 0;
     hllDenseGetRegister(&reg, registers, j);
@@ -231,41 +231,41 @@ void hllDenseRegHisto(uint8_t *registers, int *reghisto) {
 
 /* ========================= HyperLogLog Count ==============================
  * This is the core of the algorithm where the approximated count is computed.
- * The function uses the lower level hllDenseRegHisto() and hllSparseRegHisto()
+ * The function uses the lower level HllDenseRegHisto() and hllSparseRegHisto()
  * functions as helpers to compute histogram of register values part of the
  * computation, which is representation-specific, while all the rest is common. */
 
 /* Helper function sigma as defined in
  * "New cardinality estimation algorithms for HyperLogLog sketches"
  * Otmar Ertl, arXiv:1702.01284 */
-double hllSigma(double x) {
+double HllSigma(double x) {
   if (x == 1.) return INFINITY;
-  double zPrime;
+  double z_prime = NAN;
   double y = 1;
   double z = x;
   do {
     x *= x;
-    zPrime = z;
+    z_prime = z;
     z += x * y;
     y += y;
-  } while (zPrime != z);
+  } while (z_prime != z);
   return z;
 }
 
 /* Helper function tau as defined in
  * "New cardinality estimation algorithms for HyperLogLog sketches"
  * Otmar Ertl, arXiv:1702.01284 */
-double hllTau(double x) {
+double HllTau(double x) {
   if (x == 0. || x == 1.) return 0.;
-  double zPrime;
+  double z_prime = NAN;
   double y = 1.0;
   double z = 1 - x;
   do {
     x = sqrt(x);
-    zPrime = z;
+    z_prime = z;
     y *= 0.5;
     z -= pow(1 - x, 2) * y;
-  } while (zPrime != z);
+  } while (z_prime != z);
   return z / 3;
 }
 
@@ -273,8 +273,8 @@ double hllTau(double x) {
  * mean of the registers values. */
 uint64_t HyperLogLog::HllCount(const std::vector<uint8_t> &registers) {
   double m = kHyperLogLogRegisterCount;
-  double E;
-  int j;
+  double e = NAN;
+  int j = 0;
   /* Note that reghisto size could be just kHyperLogLogHashBitCount+2, because kHyperLogLogHashBitCount+1 is
    * the maximum frequency of the "000...1" sequence the hash function is
    * able to return. However it is slow to check for sanity of the
@@ -283,20 +283,20 @@ uint64_t HyperLogLog::HllCount(const std::vector<uint8_t> &registers) {
   int reghisto[64] = {0};
 
   /* Compute register histogram */
-  hllDenseRegHisto((uint8_t *)(registers.data()), reghisto);
+  HllDenseRegHisto((uint8_t *)(registers.data()), reghisto);
 
   /* Estimate cardinality from register histogram. See:
    * "New cardinality estimation algorithms for HyperLogLog sketches"
    * Otmar Ertl, arXiv:1702.01284 */
-  double z = m * hllTau((m - reghisto[kHyperLogLogHashBitCount + 1]) / (double)m);
+  double z = m * HllTau((m - reghisto[kHyperLogLogHashBitCount + 1]) / (double)m);
   for (j = kHyperLogLogHashBitCount; j >= 1; --j) {
     z += reghisto[j];
     z *= 0.5;
   }
-  z += m * hllSigma(reghisto[0] / (double)m);
-  E = llroundl(kHyperLogLogAlphaInf * m * m / z);
+  z += m * HllSigma(reghisto[0] / (double)m);
+  e = static_cast<double>(llroundl(kHyperLogLogAlphaInf * m * m / z));
 
-  return (uint64_t)E;
+  return (uint64_t)e;
 }
 
 /* Merge by computing MAX(registers[i],hll[i]) the HyperLogLog 'hll'
@@ -305,12 +305,12 @@ uint64_t HyperLogLog::HllCount(const std::vector<uint8_t> &registers) {
  * The hll object must be already validated via isHLLObjectOrReply()
  * or in some other way. */
 void HyperLogLog::HllMerge(std::vector<uint8_t> *registers_max, const std::vector<uint8_t> &registers) {
-  uint8_t val, max_val;
+  uint8_t val = 0, max_val = 0;
 
   for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
     hllDenseGetRegister(&val, (uint8_t *)(registers.data()), i);
     hllDenseGetRegister(&max_val, reinterpret_cast<uint8_t *>(registers_max->data()), i);
-    if (val > registers_max->data()[i]) {
+    if (val > *(registers_max->data() + i)) {
       hllDenseSetRegister(reinterpret_cast<uint8_t *>(registers_max->data()), i, val);
     }
   }

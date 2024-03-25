@@ -43,7 +43,7 @@ uint64_t MurmurHash64A(const void *key, int len, unsigned int seed) {
   const uint8_t *end = data + (len - (len & 7));
 
   while (data != end) {
-    uint64_t k;
+    uint64_t k = 0;
 
 #if (BYTE_ORDER == LITTLE_ENDIAN)
 #ifdef USE_ALIGNED_ACCESS
