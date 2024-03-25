@@ -74,15 +74,15 @@ void hllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
 /* Set the value of the register at position 'regnum' to 'val'.
  * 'p' is an array of unsigned bytes. */
 void hllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
-    uint8_t *_p = (uint8_t *)registers;
-    unsigned long _byte = index * kHyperLogLogBits / 8;
-    unsigned long _fb = index * kHyperLogLogBits & 7;
-    unsigned long _fb8 = 8 - _fb;
-    unsigned long _v = val;
-    _p[_byte] &= ~(kHyperLogLogRegisterMax << _fb);
-    _p[_byte] |= _v << _fb;
-    _p[_byte + 1] &= ~(kHyperLogLogRegisterMax >> _fb8);
-    _p[_byte + 1] |= _v >> _fb8;
+  uint8_t *_p = (uint8_t *)registers;
+  unsigned long _byte = index * kHyperLogLogBits / 8;
+  unsigned long _fb = index * kHyperLogLogBits & 7;
+  unsigned long _fb8 = 8 - _fb;
+  unsigned long _v = val;
+  _p[_byte] &= ~(kHyperLogLogRegisterMax << _fb);
+  _p[_byte] |= _v << _fb;
+  _p[_byte + 1] &= ~(kHyperLogLogRegisterMax >> _fb8);
+  _p[_byte + 1] |= _v >> _fb8;
 }
 
 rocksdb::Status HyperLogLog::GetMetadata(const Slice &ns_key, HyperloglogMetadata *metadata) {
