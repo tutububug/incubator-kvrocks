@@ -564,9 +564,9 @@ TEST_P(RedisBitmapTest, UnsignedBitfieldFailSetTest) {
 }
 
 TEST_P(RedisBitmapTest, BitfieldStringGetSetTest) {
-//  if (bool use_bitmap = GetParam(); use_bitmap) {
-//    GTEST_SKIP() << "skip bitmap test for BitfieldStringGetSetTest";
-//  }
+  //  if (bool use_bitmap = GetParam(); use_bitmap) {
+  //    GTEST_SKIP() << "skip bitmap test for BitfieldStringGetSetTest";
+  //  }
   std::string str = "dan yuan ren chang jiu, qian li gong chan juan.";
   string_->Set(key_, str);
 
