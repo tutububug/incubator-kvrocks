@@ -54,4 +54,3 @@ class HyperLogLog : public Database {
 };
 
 }  // namespace redis
-
