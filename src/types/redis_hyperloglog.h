@@ -44,9 +44,9 @@ class HyperLogLog : public Database {
   rocksdb::Status Count(const Slice &user_key, uint64_t *ret);
   rocksdb::Status Merge(const std::vector<Slice> &user_keys);
 
-  static uint64_t hllCount(const std::vector<uint8_t> &registers);
-  static void hllMerge(std::vector<uint8_t> *registers_max, const std::vector<uint8_t> &registers);
-  static uint8_t hllPatLen(const std::vector<uint8_t> &element, uint32_t *register_index);
+  static uint64_t HllCount(const std::vector<uint8_t> &registers);
+  static void HllMerge(std::vector<uint8_t> *registers_max, const std::vector<uint8_t> &registers);
+  static uint8_t HllPatLen(const std::vector<uint8_t> &element, uint32_t *register_index);
 
  private:
   rocksdb::Status GetMetadata(const Slice &ns_key, HyperloglogMetadata *metadata);
