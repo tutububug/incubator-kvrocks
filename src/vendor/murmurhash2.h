@@ -39,7 +39,7 @@ uint64_t MurmurHash64A(const void *key, int len, unsigned int seed) {
   const uint64_t m = 0xc6a4a7935bd1e995;
   const int r = 47;
   uint64_t h = seed ^ (len * m);
-  const uint8_t *data = (const uint8_t *)key;
+  const auto *data = (const uint8_t *)key;
   const uint8_t *end = data + (len - (len & 7));
 
   while (data != end) {

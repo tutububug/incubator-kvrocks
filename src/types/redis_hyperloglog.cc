@@ -61,7 +61,7 @@ namespace redis {
 
 /* Store the value of the register at position 'regnum' into variable 'target'.
  * 'p' is an array of unsigned bytes. */
-void hllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
+void HllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
   auto *p = (uint8_t *)registers;
   unsigned long byte = index * kHyperLogLogBits / 8;
   unsigned long fb = index * kHyperLogLogBits & 7;
@@ -73,7 +73,7 @@ void hllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
 
 /* Set the value of the register at position 'regnum' to 'val'.
  * 'p' is an array of unsigned bytes. */
-void hllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
+void HllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
   auto *p = (uint8_t *)registers;
   unsigned long byte = index * kHyperLogLogBits / 8;
   unsigned long fb = index * kHyperLogLogBits & 7;
@@ -127,9 +127,9 @@ rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice>
     }
 
     uint8_t old_count = 0;
-    hllDenseGetRegister(&old_count, reinterpret_cast<uint8_t *>(segment->data()), register_index_in_segment);
+    HllDenseGetRegister(&old_count, reinterpret_cast<uint8_t *>(segment->data()), register_index_in_segment);
     if (count > old_count) {
-      hllDenseSetRegister(reinterpret_cast<uint8_t *>(segment->data()), register_index_in_segment, count);
+      HllDenseSetRegister(reinterpret_cast<uint8_t *>(segment->data()), register_index_in_segment, count);
       *ret = 1;
     }
   }
@@ -224,7 +224,7 @@ uint8_t HyperLogLog::HllPatLen(const std::vector<uint8_t> &element, uint32_t *re
 void HllDenseRegHisto(uint8_t *registers, int *reghisto) {
   for (uint32_t j = 0; j < kHyperLogLogRegisterCount; j++) {
     uint8_t reg = 0;
-    hllDenseGetRegister(&reg, registers, j);
+    HllDenseGetRegister(&reg, registers, j);
     reghisto[reg]++;
   }
 }
@@ -308,10 +308,10 @@ void HyperLogLog::HllMerge(std::vector<uint8_t> *registers_max, const std::vecto
   uint8_t val = 0, max_val = 0;
 
   for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
-    hllDenseGetRegister(&val, (uint8_t *)(registers.data()), i);
-    hllDenseGetRegister(&max_val, reinterpret_cast<uint8_t *>(registers_max->data()), i);
+    HllDenseGetRegister(&val, (uint8_t *)(registers.data()), i);
+    HllDenseGetRegister(&max_val, reinterpret_cast<uint8_t *>(registers_max->data()), i);
     if (val > *(registers_max->data() + i)) {
-      hllDenseSetRegister(reinterpret_cast<uint8_t *>(registers_max->data()), i, val);
+      HllDenseSetRegister(reinterpret_cast<uint8_t *>(registers_max->data()), i, val);
     }
   }
 }
