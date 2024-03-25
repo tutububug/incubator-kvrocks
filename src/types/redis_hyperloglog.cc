@@ -190,7 +190,7 @@ rocksdb::Status HyperLogLog::Merge(const std::vector<Slice> &user_keys) {
  * of the pattern 000..1 of the element hash. As a side effect 'regp' is
  * set to the register index this element hashes to. */
 uint8_t HyperLogLog::HllPatLen(const std::vector<uint8_t> &element, uint32_t *register_index) {
-  int elesize = element.size();
+  int elesize = static_cast<int>(element.size());
   uint64_t hash = 0, bit = 0, index = 0;
   int count = 0;
 
