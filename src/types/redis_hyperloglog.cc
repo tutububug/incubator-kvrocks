@@ -59,8 +59,8 @@
 
 namespace redis {
 
-/* Store the value of the register at position 'regnum' into variable 'target'.
- * 'p' is an array of unsigned bytes. */
+/* Store the value of the register at position 'index' into variable 'val'.
+ * 'registers' is an array of unsigned bytes. */
 void HllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
   unsigned long byte = index * kHyperLogLogBits / 8;
   unsigned long fb = index * kHyperLogLogBits & 7;
@@ -70,8 +70,8 @@ void HllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
   *val = ((b0 >> fb) | (b1 << fb8)) & kHyperLogLogRegisterMax;
 }
 
-/* Set the value of the register at position 'regnum' to 'val'.
- * 'p' is an array of unsigned bytes. */
+/* Set the value of the register at position 'index' to 'val'.
+ * 'registers' is an array of unsigned bytes. */
 void HllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
   unsigned long byte = index * kHyperLogLogBits / 8;
   unsigned long fb = index * kHyperLogLogBits & 7;
@@ -119,9 +119,7 @@ rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice>
     auto s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
     if (segment->size() == 0) {
-      std::string seg(kHyperLogLogRegisterBytesPerSegment, 0);
-      cache.Set(segment_index, seg);
-      cache.GetMut(segment_index, &segment);
+      segment->resize(kHyperLogLogRegisterBytesPerSegment, 0);
     }
 
     uint8_t old_count = 0;
@@ -170,13 +168,25 @@ rocksdb::Status HyperLogLog::Merge(const std::vector<Slice> &user_keys) {
   }
 
   Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
+  // TODO debug
+  std::cout << "merge key: " << user_keys[0] << std::endl;
   for (uint32_t segment_index = 0; segment_index < kHyperLogLogSegmentCount; segment_index++) {
     std::string registers(max.begin() + segment_index * kHyperLogLogRegisterBytesPerSegment,
                           max.begin() + (segment_index + 1) * kHyperLogLogRegisterBytesPerSegment);
     std::string *segment = nullptr;
-    auto s = cache.GetMut(segment_index, &segment);
+    s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
-    *segment = registers;
+    if (segment->size() == 0) {
+      *segment = registers;
+    }
+    // TODO debug
+    for (uint32_t i = 0; i < kHyperLogLogRegisterCountPerSegment; i++) {
+      uint8_t v = 0;
+      HllDenseGetRegister(&v, reinterpret_cast<uint8_t *>(segment->data()), i);
+      if (v > 0)
+        std::cout << "put reg index: " << segment_index * kHyperLogLogRegisterCountPerSegment + i << ", val: " << int(v)
+                  << std::endl;
+    }
   }
   cache.BatchForFlush(batch);
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
@@ -330,15 +340,25 @@ rocksdb::Status HyperLogLog::getRegisters(const Slice &user_key, std::vector<uin
   rocksdb::Slice upper_bound(next_version_prefix);
   read_options.iterate_upper_bound = &upper_bound;
 
+  // TODO debug
+  std::cout << "scan subkey: " << user_key.ToString() << std::endl;
   auto iter = util::UniqueIterator(storage_, read_options);
   for (iter->Seek(prefix); iter->Valid() && iter->key().starts_with(prefix); iter->Next()) {
     InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
 
     int register_index = std::stoi(ikey.GetSubKey().ToString());
-    // TODO assert the value size must be kHyperLogLogRegisterBytesPerSegment
     auto val = iter->value().ToString();
+    if (val.size() != kHyperLogLogRegisterBytesPerSegment) {
+      return rocksdb::Status::Corruption("Value size must be kHyperLogLogRegisterBytesPerSegment");
+    }
     auto register_byte_offset = register_index / 8 * kHyperLogLogBits;
     std::copy(val.begin(), val.end(), registers->data() + register_byte_offset);
+    // TODO debug
+    for (uint32_t i = 0; i < kHyperLogLogRegisterCountPerSegment; i++) {
+      uint8_t v = 0;
+      HllDenseGetRegister(&v, reinterpret_cast<uint8_t *>(val.data()), i);
+      if (v > 0) std::cout << "scan: reg index: " << register_index + i << ", val: " << (int)v << std::endl;
+    }
   }
   return rocksdb::Status::OK();
 }

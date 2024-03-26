@@ -27,7 +27,7 @@
 namespace redis {
 
 // NOTICE: adapt to the requirements of use Bitmap::SegmentCacheStore
-constexpr uint32_t kHyperLogLogRegisterCountPerSegment = kBitmapSegmentBytes;
+constexpr uint32_t kHyperLogLogRegisterCountPerSegment = kBitmapSegmentBits / 8;
 
 constexpr uint32_t kHyperLogLogSegmentCount = kHyperLogLogRegisterCount / kHyperLogLogRegisterCountPerSegment;
 constexpr uint32_t kHyperLogLogBits = 6;
