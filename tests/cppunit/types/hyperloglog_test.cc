@@ -72,7 +72,8 @@ TEST_F(RedisHyperloglogTest, PFMERGE_results_on_the_cardinality_of_union_of_sets
   // pf merge hll hll1 hll2 hll3
   ASSERT_TRUE(hll_->Merge({"hll", "hll1", "hll2", "hll3"}).ok());
   // pf count hll is 5
-  ASSERT_TRUE(hll_->Count("hll", &ret).ok() && ret == 5);
+  ASSERT_TRUE(hll_->Count("hll", &ret).ok());
+  ASSERT_TRUE(ret == 5);
 }
 
 TEST_F(RedisHyperloglogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_union_1) {
