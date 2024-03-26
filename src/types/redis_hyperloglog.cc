@@ -62,21 +62,21 @@ namespace redis {
 /* Store the value of the register at position 'index' into variable 'val'.
  * 'registers' is an array of unsigned bytes. */
 void HllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
-  unsigned long byte = index * kHyperLogLogBits / 8;
-  unsigned long fb = index * kHyperLogLogBits & 7;
-  unsigned long fb8 = 8 - fb;
-  unsigned long b0 = registers[byte];
-  unsigned long b1 = registers[byte + 1];
+  uint32_t byte = index * kHyperLogLogBits / 8;
+  uint8_t fb = index * kHyperLogLogBits & 7;
+  uint8_t fb8 = 8 - fb;
+  uint8_t b0 = registers[byte];
+  uint8_t b1 = registers[byte + 1];
   *val = ((b0 >> fb) | (b1 << fb8)) & kHyperLogLogRegisterMax;
 }
 
 /* Set the value of the register at position 'index' to 'val'.
  * 'registers' is an array of unsigned bytes. */
 void HllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
-  unsigned long byte = index * kHyperLogLogBits / 8;
-  unsigned long fb = index * kHyperLogLogBits & 7;
-  unsigned long fb8 = 8 - fb;
-  unsigned long v = val;
+  uint32_t byte = index * kHyperLogLogBits / 8;
+  uint8_t fb = index * kHyperLogLogBits & 7;
+  uint8_t fb8 = 8 - fb;
+  uint8_t v = val;
   registers[byte] &= ~(kHyperLogLogRegisterMax << fb);
   registers[byte] |= v << fb;
   registers[byte + 1] &= ~(kHyperLogLogRegisterMax >> fb8);
