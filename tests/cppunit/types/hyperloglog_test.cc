@@ -25,17 +25,17 @@
 #include "test_base.h"
 #include "types/redis_hyperloglog.h"
 
-class RedisHyperloglogTest : public TestBase {
+class RedisHyperLogLogTest : public TestBase {
  protected:
-  explicit RedisHyperloglogTest() : TestBase() {
+  explicit RedisHyperLogLogTest() : TestBase() {
     hll_ = std::make_unique<redis::HyperLogLog>(storage_.get(), "hll_ns");
   }
-  ~RedisHyperloglogTest() override = default;
+  ~RedisHyperLogLogTest() override = default;
 
   std::unique_ptr<redis::HyperLogLog> hll_;
 };
 
-TEST_F(RedisHyperloglogTest, PFADD) {
+TEST_F(RedisHyperLogLogTest, PFADD) {
   uint64_t ret = 0;
   ASSERT_TRUE(hll_->Add("hll", {}, &ret).ok() && ret == 0);
   // Approximated cardinality after creation is zero
@@ -49,7 +49,7 @@ TEST_F(RedisHyperloglogTest, PFADD) {
   ASSERT_TRUE(hll_->Add("hll", {""}, &ret).ok() && ret == 1);
 }
 
-TEST_F(RedisHyperloglogTest, PFCOUNT_returns_approximated_cardinality_of_set) {
+TEST_F(RedisHyperLogLogTest, PFCOUNT_returns_approximated_cardinality_of_set) {
   uint64_t ret = 0;
   // pf add "1" to "5"
   ASSERT_TRUE(hll_->Add("hll", {"1", "2", "3", "4", "5"}, &ret).ok() && ret == 1);
@@ -61,7 +61,7 @@ TEST_F(RedisHyperloglogTest, PFCOUNT_returns_approximated_cardinality_of_set) {
   ASSERT_TRUE(hll_->Count("hll", &ret).ok() && ret == 10);
 }
 
-TEST_F(RedisHyperloglogTest, PFMERGE_results_on_the_cardinality_of_union_of_sets) {
+TEST_F(RedisHyperLogLogTest, PFMERGE_results_on_the_cardinality_of_union_of_sets) {
   uint64_t ret = 0;
   // pf add hll1 a b c
   ASSERT_TRUE(hll_->Add("hll1", {"a", "b", "c"}, &ret).ok() && ret == 1);
@@ -76,7 +76,7 @@ TEST_F(RedisHyperloglogTest, PFMERGE_results_on_the_cardinality_of_union_of_sets
   ASSERT_TRUE(ret == 5) << "ret: " << ret;
 }
 
-TEST_F(RedisHyperloglogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_union_1) {
+TEST_F(RedisHyperLogLogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_union_1) {
   for (int x = 1; x < 1000; x++) {
     uint64_t ret = 0;
     ASSERT_TRUE(hll_->Add("hll0", {"foo-" + std::to_string(x)}, &ret).ok());
@@ -97,7 +97,7 @@ TEST_F(RedisHyperloglogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_
   }
 }
 
-TEST_F(RedisHyperloglogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_union_2) {
+TEST_F(RedisHyperLogLogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_union_2) {
   std::unordered_set<int> realcard_set;
   for (auto i = 1; i < 1000; i++) {
     for (auto j = 0; j < 3; j++) {
