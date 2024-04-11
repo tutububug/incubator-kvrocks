@@ -84,6 +84,7 @@ void HllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
 }
 
 rocksdb::Status HyperLogLog::GetMetadata(const Slice &ns_key, HyperloglogMetadata *metadata) {
+  // TODO fix
   return Database::GetMetadata({kRedisHyperLogLog}, ns_key, metadata);
 }
 
