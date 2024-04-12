@@ -83,7 +83,8 @@ void HllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
   registers[byte + 1] |= v >> fb8;
 }
 
-rocksdb::Status HyperLogLog::GetMetadata(Database::GetOptions get_options, const Slice &ns_key, HyperloglogMetadata *metadata) {
+rocksdb::Status HyperLogLog::GetMetadata(Database::GetOptions get_options, const Slice &ns_key,
+                                         HyperloglogMetadata *metadata) {
   return Database::GetMetadata(get_options, {kRedisHyperLogLog}, ns_key, metadata);
 }
 
