@@ -489,3 +489,28 @@ rocksdb::Status SearchMetadata::Decode(Slice *input) {
 
   return rocksdb::Status::OK();
 }
+
+void HyperloglogMetadata::Encode(std::string *dst) const {
+  Metadata::Encode(dst);
+  PutFixed8(dst, static_cast<uint8_t>(encode_type_));
+  PutFixed8(dst, dense_bits_);
+}
+
+rocksdb::Status HyperloglogMetadata::Decode(Slice *input) {
+  if (auto s = Metadata::Decode(input); !s.ok()) {
+    return s;
+  }
+
+  if (input->size() < 1 + 1) {
+    return rocksdb::Status::InvalidArgument(kErrMetadataTooShort);
+  }
+  GetFixed8(input, reinterpret_cast<uint8_t *>(&encode_type_));
+  GetFixed8(input, &dense_bits_);
+
+  if (encode_type_ == EncodeType::INVALID) {
+    encode_type_ = EncodeType::DENSE;
+    dense_bits_ = kHyperLogLogBits;
+  }
+
+  return rocksdb::Status::OK();
+}

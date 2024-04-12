@@ -61,7 +61,7 @@ namespace redis {
 
 /* Store the value of the register at position 'index' into variable 'val'.
  * 'registers' is an array of unsigned bytes. */
-void HllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
+static void HllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
   uint32_t byte = index * kHyperLogLogBits / 8;
   uint8_t fb = index * kHyperLogLogBits & 7;
   uint8_t fb8 = 8 - fb;
@@ -72,7 +72,7 @@ void HllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
 
 /* Set the value of the register at position 'index' to 'val'.
  * 'registers' is an array of unsigned bytes. */
-void HllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
+static void HllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
   uint32_t byte = index * kHyperLogLogBits / 8;
   uint8_t fb = index * kHyperLogLogBits & 7;
   uint8_t fb8 = 8 - fb;

@@ -336,12 +336,14 @@ constexpr uint32_t kHyperLogLogHashBitCount =
     64 - kHyperLogLogRegisterCountPow; /* The number of bits of the hash value used for determining the number of
                                           leading zeros. */
 constexpr uint32_t kHyperLogLogRegisterCount = 1 << kHyperLogLogRegisterCountPow; /* With Pow=14, 16384 registers. */
+constexpr uint8_t kHyperLogLogBits = 8;
 
 class HyperloglogMetadata : public Metadata {
  public:
   enum class EncodeType : uint8_t {
-    DENSE = 0,   // dense encoding implement as sub keys to store registers by segment in data column family.
-    SPARSE = 1,  // TODO sparse encoding implement as a compressed string to store registers in metadata column family.
+    INVALID = 0,
+    DENSE = 1,   // dense encoding implement as sub keys to store registers by segment in data column family.
+    SPARSE = 2,  // TODO sparse encoding implement as a compressed string to store registers in metadata column family.
   };
 
   explicit HyperloglogMetadata(EncodeType encode_type = EncodeType::DENSE, bool generate_version = true)
@@ -349,7 +351,16 @@ class HyperloglogMetadata : public Metadata {
     size = 1;  // 'size' must non-zone, or 'GetMetadata' will failed as 'expired'.
   }
 
+  void Encode(std::string *dst) const override;
+  using Metadata::Decode;
+  rocksdb::Status Decode(Slice *input) override;
+
+ public:
+  EncodeType GetEncodeType() const { return encode_type_; }
+  uint8_t GetDenseBits() const { return dense_bits_; }
+
  private:
   // TODO optimize for converting storage encoding automatically
-  // EncodeType encode_type_;
+  EncodeType encode_type_ = EncodeType::DENSE;
+  uint8_t dense_bits_ = kHyperLogLogBits;
 };
