@@ -83,9 +83,8 @@ void HllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
   registers[byte + 1] |= v >> fb8;
 }
 
-rocksdb::Status HyperLogLog::GetMetadata(const Slice &ns_key, HyperloglogMetadata *metadata) {
-  // TODO
-  return Database::GetMetadata({kRedisHyperLogLog}, ns_key, metadata);
+rocksdb::Status HyperLogLog::GetMetadata(Database::GetOptions get_options, const Slice &ns_key, HyperloglogMetadata *metadata) {
+  return Database::GetMetadata(get_options, {kRedisHyperLogLog}, ns_key, metadata);
 }
 
 /* the max 0 pattern counter of the subset the element belongs to is incremented if needed */
@@ -95,7 +94,7 @@ rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice>
 
   LockGuard guard(storage_->GetLockManager(), ns_key);
   HyperloglogMetadata metadata;
-  rocksdb::Status s = GetMetadata(ns_key, &metadata);
+  rocksdb::Status s = GetMetadata(GetOptions(), ns_key, &metadata);
   if (!s.ok() && !s.IsNotFound()) return s;
 
   auto batch = storage_->GetWriteBatchBase();
@@ -156,7 +155,7 @@ rocksdb::Status HyperLogLog::Merge(const std::vector<Slice> &user_keys) {
 
   LockGuard guard(storage_->GetLockManager(), ns_key);
   HyperloglogMetadata metadata;
-  rocksdb::Status s = GetMetadata(ns_key, &metadata);
+  rocksdb::Status s = GetMetadata(GetMetadata(), ns_key, &metadata);
   if (!s.ok() && !s.IsNotFound()) return s;
 
   auto batch = storage_->GetWriteBatchBase();
@@ -319,14 +318,15 @@ rocksdb::Status HyperLogLog::getRegisters(const Slice &user_key, std::vector<uin
   std::string ns_key = AppendNamespacePrefix(user_key);
 
   HyperloglogMetadata metadata;
-  rocksdb::Status s = GetMetadata(ns_key, &metadata);
+  LatestSnapShot ss(storage_);
+
+  rocksdb::Status s = GetMetadata(Database::GetOptions{ss.GetSnapShot()}, ns_key, &metadata);
   if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
   std::string prefix = InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode();
   std::string next_version_prefix = InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded()).Encode();
 
   rocksdb::ReadOptions read_options = storage_->DefaultScanOptions();
-  LatestSnapShot ss(storage_);
   read_options.snapshot = ss.GetSnapShot();
   rocksdb::Slice upper_bound(next_version_prefix);
   read_options.iterate_upper_bound = &upper_bound;
