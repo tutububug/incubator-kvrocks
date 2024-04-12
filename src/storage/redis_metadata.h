@@ -336,7 +336,7 @@ constexpr uint32_t kHyperLogLogHashBitCount =
     64 - kHyperLogLogRegisterCountPow; /* The number of bits of the hash value used for determining the number of
                                           leading zeros. */
 constexpr uint32_t kHyperLogLogRegisterCount = 1 << kHyperLogLogRegisterCountPow; /* With Pow=14, 16384 registers. */
-constexpr uint8_t kHyperLogLogBits = 8;
+constexpr uint8_t kHyperLogLogBits = 6;
 
 class HyperloglogMetadata : public Metadata {
  public:
