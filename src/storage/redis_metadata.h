@@ -355,7 +355,6 @@ class HyperloglogMetadata : public Metadata {
   using Metadata::Decode;
   rocksdb::Status Decode(Slice *input) override;
 
- public:
   EncodeType GetEncodeType() const { return encode_type_; }
   uint8_t GetDenseBits() const { return dense_bits_; }
 
