@@ -61,7 +61,7 @@ rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice>
     std::string *segment = nullptr;
     auto s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
-    if (segment->size() == 0) {
+    if (segment->size() != kHyperLogLogRegisterBytesPerSegment) {
       segment->resize(kHyperLogLogRegisterBytesPerSegment, 0);
     }
 
