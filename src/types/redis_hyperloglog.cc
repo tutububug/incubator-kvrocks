@@ -43,11 +43,6 @@ rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice>
   auto batch = storage_->GetWriteBatchBase();
   WriteBatchLogData log_data(kRedisHyperLogLog);
   batch->PutLogData(log_data.Encode());
-  if (s.IsNotFound()) {
-    std::string bytes;
-    metadata.Encode(&bytes);
-    batch->Put(metadata_cf_handle_, ns_key, bytes);
-  }
 
   Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
   for (const auto &element : elements) {
@@ -95,7 +90,6 @@ rocksdb::Status HyperLogLog::Merge(const std::vector<Slice> &user_keys) {
   }
 
   std::string ns_key = AppendNamespacePrefix(user_keys[0]);
-
   LockGuard guard(storage_->GetLockManager(), ns_key);
   HyperloglogMetadata metadata;
   rocksdb::Status s = GetMetadata(GetOptions(), ns_key, &metadata);
@@ -104,11 +98,6 @@ rocksdb::Status HyperLogLog::Merge(const std::vector<Slice> &user_keys) {
   auto batch = storage_->GetWriteBatchBase();
   WriteBatchLogData log_data(kRedisHyperLogLog);
   batch->PutLogData(log_data.Encode());
-  if (s.IsNotFound()) {
-    std::string bytes;
-    metadata.Encode(&bytes);
-    batch->Put(metadata_cf_handle_, ns_key, bytes);
-  }
 
   Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
   for (uint32_t segment_index = 0; segment_index < kHyperLogLogSegmentCount; segment_index++) {
@@ -117,10 +106,9 @@ rocksdb::Status HyperLogLog::Merge(const std::vector<Slice> &user_keys) {
     std::string *segment = nullptr;
     s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
-    if (segment->size() != kHyperLogLogRegisterBytesPerSegment) {
-      segment->resize(kHyperLogLogRegisterBytesPerSegment, 0);
-    }
-    std::copy(registers.begin(), registers.end(), segment->data());
+
+    segment->resize(kHyperLogLogRegisterBytesPerSegment, 0);
+    std::copy(registers.begin(), registers.end(), segment->begin());
   }
   cache.BatchForFlush(batch);
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
@@ -148,14 +136,20 @@ rocksdb::Status HyperLogLog::getRegisters(const Slice &user_key, std::vector<uin
     InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
 
     int register_index = std::stoi(ikey.GetSubKey().ToString());
+    if (register_index / kHyperLogLogRegisterCountPerSegment < 0 ||
+        register_index / kHyperLogLogRegisterCountPerSegment >= kHyperLogLogSegmentCount ||
+        register_index % kHyperLogLogRegisterCountPerSegment != 0) {
+      return rocksdb::Status::Corruption("invalid subkey index: idx=" + ikey.GetSubKey().ToString());
+    }
     auto val = iter->value().ToString();
     if (val.size() != kHyperLogLogRegisterBytesPerSegment) {
       return rocksdb::Status::Corruption(
           "insufficient length subkey value size: expect=" + std::to_string(kHyperLogLogRegisterBytesPerSegment) +
           ", actual=" + std::to_string(val.size()));
     }
+
     auto register_byte_offset = register_index / 8 * kHyperLogLogBits;
-    std::copy(val.begin(), val.end(), registers->data() + register_byte_offset);
+    std::copy(val.begin(), val.end(), registers->begin() + register_byte_offset);
   }
   return rocksdb::Status::OK();
 }
