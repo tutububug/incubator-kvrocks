@@ -122,7 +122,7 @@ void HllDenseRegHisto(uint8_t *registers, int *reghisto) {
    * we take a faster path with unrolled loops. */
   if (kHyperLogLogRegisterCount == 16384 && kHyperLogLogBits == 6) {
     uint8_t *r = registers;
-    uint8_t r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, r6 = 0, r7 = 0, r8 = 0, r9 = 0, r10 = 0, r11 = 0, r12 = 0,
+    unsigned long r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, r6 = 0, r7 = 0, r8 = 0, r9 = 0, r10 = 0, r11 = 0, r12 = 0,
             r13 = 0, r14 = 0, r15 = 0;
     for (int j = 0; j < 1024; j++) {
       /* Handle 16 registers per iteration. */
