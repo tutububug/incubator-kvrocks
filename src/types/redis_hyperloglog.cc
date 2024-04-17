@@ -106,8 +106,10 @@ rocksdb::Status HyperLogLog::Merge(const std::vector<Slice> &user_keys) {
     std::string *segment = nullptr;
     s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
+    if (segment->size() == 0) {
+      segment->resize(kHyperLogLogRegisterBytesPerSegment, 0);
+    }
 
-    segment->resize(kHyperLogLogRegisterBytesPerSegment, 0);
     std::copy(registers.begin(), registers.end(), segment->begin());
   }
   cache.BatchForFlush(batch);
