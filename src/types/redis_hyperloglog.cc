@@ -43,6 +43,11 @@ rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice>
   auto batch = storage_->GetWriteBatchBase();
   WriteBatchLogData log_data(kRedisHyperLogLog);
   batch->PutLogData(log_data.Encode());
+  if (s.IsNotFound()) {
+    std::string bytes;
+    metadata.Encode(&bytes);
+    batch->Put(metadata_cf_handle_, ns_key, bytes);
+  }
 
   Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
   for (const auto &element : elements) {
@@ -98,6 +103,11 @@ rocksdb::Status HyperLogLog::Merge(const std::vector<Slice> &user_keys) {
   auto batch = storage_->GetWriteBatchBase();
   WriteBatchLogData log_data(kRedisHyperLogLog);
   batch->PutLogData(log_data.Encode());
+  if (s.IsNotFound()) {
+    std::string bytes;
+    metadata.Encode(&bytes);
+    batch->Put(metadata_cf_handle_, ns_key, bytes);
+  }
 
   Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
   for (uint32_t segment_index = 0; segment_index < kHyperLogLogSegmentCount; segment_index++) {
