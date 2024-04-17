@@ -117,15 +117,14 @@ uint8_t HllPatLen(const std::vector<uint8_t> &element, uint32_t *register_index)
 
 /* Compute the register histogram in the dense representation. */
 void HllDenseRegHisto(uint8_t *registers, int *reghisto) {
-  int j = 0;
-
   /* Redis default is to use 16384 registers 6 bits each. The code works
    * with other values by modifying the defines, but for our target value
    * we take a faster path with unrolled loops. */
   if (kHyperLogLogRegisterCount == 16384 && kHyperLogLogBits == 6) {
     uint8_t *r = registers;
-    unsigned long r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15;
-    for (j = 0; j < 1024; j++) {
+    uint8_t r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, r6 = 0, r7 = 0, r8 = 0, r9 = 0, r10 = 0, r11 = 0, r12 = 0,
+            r13 = 0, r14 = 0, r15 = 0;
+    for (int j = 0; j < 1024; j++) {
       /* Handle 16 registers per iteration. */
       r0 = r[0] & 63;
       r1 = (r[0] >> 6 | r[1] << 2) & 63;
