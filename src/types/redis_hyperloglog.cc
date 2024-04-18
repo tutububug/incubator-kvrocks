@@ -43,13 +43,8 @@ rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice>
   auto batch = storage_->GetWriteBatchBase();
   WriteBatchLogData log_data(kRedisHyperLogLog);
   batch->PutLogData(log_data.Encode());
-  if (s.IsNotFound()) {
-    std::string bytes;
-    metadata.Encode(&bytes);
-    batch->Put(metadata_cf_handle_, ns_key, bytes);
-  }
 
-  Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
+  Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, &metadata);
   for (const auto &element : elements) {
     uint32_t register_index = 0;
     auto ele_str = element.ToString();
@@ -103,22 +98,14 @@ rocksdb::Status HyperLogLog::Merge(const std::vector<Slice> &user_keys) {
   auto batch = storage_->GetWriteBatchBase();
   WriteBatchLogData log_data(kRedisHyperLogLog);
   batch->PutLogData(log_data.Encode());
-  if (s.IsNotFound()) {
-    std::string bytes;
-    metadata.Encode(&bytes);
-    batch->Put(metadata_cf_handle_, ns_key, bytes);
-  }
 
-  Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, metadata);
+  Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, &metadata);
   for (uint32_t segment_index = 0; segment_index < kHyperLogLogSegmentCount; segment_index++) {
-    std::string registers(max.begin() + segment_index * kHyperLogLogRegisterBytesPerSegment,
-                          max.begin() + (segment_index + 1) * kHyperLogLogRegisterBytesPerSegment);
     std::string *segment = nullptr;
     s = cache.GetMut(segment_index, &segment);
     if (!s.ok()) return s;
-    if (segment->size() == 0) {
-      *segment = registers;
-    }
+    (*segment).assign(reinterpret_cast<const char *>(max.data()) + segment_index * kHyperLogLogRegisterBytesPerSegment,
+                      kHyperLogLogRegisterBytesPerSegment);
   }
   cache.BatchForFlush(batch);
   return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());

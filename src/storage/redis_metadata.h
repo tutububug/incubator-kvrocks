@@ -338,7 +338,7 @@ class HyperloglogMetadata : public Metadata {
     SPARSE = 1,  // TODO sparse encoding implement as a compressed string to store registers in metadata column family.
   };
 
-  explicit HyperloglogMetadata(bool generate_version = true);
+  explicit HyperloglogMetadata(bool generate_version = true) : Metadata(kRedisHyperLogLog, generate_version) {}
 
   void Encode(std::string *dst) const override;
   using Metadata::Decode;
