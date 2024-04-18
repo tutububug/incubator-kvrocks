@@ -338,12 +338,13 @@ class HyperloglogMetadata : public Metadata {
     SPARSE = 1,  // TODO sparse encoding implement as a compressed string to store registers in metadata column family.
   };
 
-  explicit HyperloglogMetadata(EncodeType encode_type = EncodeType::DENSE, bool generate_version = true)
-      : Metadata(kRedisHyperLogLog, generate_version) {
-    size = 1;  // 'size' must non-zone, or 'GetMetadata' will failed as 'expired'.
-  }
+  explicit HyperloglogMetadata(bool generate_version = true);
+
+  void Encode(std::string *dst) const override;
+  using Metadata::Decode;
+  rocksdb::Status Decode(Slice *input) override;
 
  private:
   // TODO optimize for converting storage encoding automatically
-  // EncodeType encode_type_;
+  EncodeType encode_type_ = EncodeType::DENSE;
 };
