@@ -178,7 +178,7 @@ uint64_t HllCount(const std::vector<uint8_t> &registers) {
   int reghisto[64] = {0};
 
   /* Compute register histogram */
-  HllDenseRegHisto((uint8_t *)(registers.data()), reghisto);
+  HllDenseRegHisto(const_cast<uint8_t *>(registers.data()), reghisto);
 
   /* Estimate cardinality from register histogram. See:
    * "New cardinality estimation algorithms for HyperLogLog sketches"
@@ -200,7 +200,7 @@ void HllMerge(std::vector<uint8_t> *registers_max, const std::vector<uint8_t> &r
   uint8_t val = 0, max_val = 0;
 
   for (uint32_t i = 0; i < kHyperLogLogRegisterCount; i++) {
-    HllDenseGetRegister(&val, (uint8_t *)(registers.data()), i);
+    HllDenseGetRegister(&val, const_cast<uint8_t *>(registers.data()), i);
     HllDenseGetRegister(&max_val, reinterpret_cast<uint8_t *>(registers_max->data()), i);
     if (val > *(registers_max->data() + i)) {
       HllDenseSetRegister(reinterpret_cast<uint8_t *>(registers_max->data()), i, val);

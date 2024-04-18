@@ -23,6 +23,12 @@
 
 #include "redis_bitmap.h"
 
+constexpr uint32_t kHyperLogLogRegisterCountPow = 14; /* The greater is Pow, the smaller the error. */
+constexpr uint32_t kHyperLogLogHashBitCount =
+    64 - kHyperLogLogRegisterCountPow; /* The number of bits of the hash value used for determining the number of
+                                                                                     leading zeros. */
+constexpr uint32_t kHyperLogLogRegisterCount = 1 << kHyperLogLogRegisterCountPow; /* With Pow=14, 16384 registers. */
+
 // NOTICE: adapt to the requirements of use Bitmap::SegmentCacheStore
 constexpr uint32_t kHyperLogLogRegisterCountPerSegment = redis::kBitmapSegmentBits / 8;
 

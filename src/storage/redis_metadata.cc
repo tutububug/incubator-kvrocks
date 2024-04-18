@@ -489,3 +489,25 @@ rocksdb::Status SearchMetadata::Decode(Slice *input) {
 
   return rocksdb::Status::OK();
 }
+
+HyperloglogMetadata::HyperloglogMetadata(bool generate_version) : Metadata(kRedisHyperLogLog, generate_version) {
+  size = 1;  // 'size' must non-zone, or 'GetMetadata' will failed as 'expired'.
+}
+
+void HyperloglogMetadata::Encode(std::string *dst) const {
+  Metadata::Encode(dst);
+  PutFixed8(dst, static_cast<uint8_t>(encode_type_));
+}
+
+rocksdb::Status HyperloglogMetadata::Decode(Slice *input) {
+  if (auto s = Metadata::Decode(input); !s.ok()) {
+    return s;
+  }
+
+  if (input->size() < 1) {
+    return rocksdb::Status::InvalidArgument(kErrMetadataTooShort);
+  }
+  GetFixed8(input, reinterpret_cast<uint8_t *>(&encode_type_));
+
+  return rocksdb::Status::OK();
+}
