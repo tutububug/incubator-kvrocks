@@ -241,8 +241,8 @@ uint64_t HllCount(const std::vector<uint8_t> &registers) {
   return (uint64_t)e;
 }
 
-/* Merge by computing MAX(registers[i],hll[i]) the HyperLogLog 'hll'
- * with an array of uint8_t kHyperLogLogRegisterCount registers pointed by 'max'. */
+/* Merge by computing MAX(registers_max[i],registers[i]) the HyperLogLog 'registers'
+ * with an array of uint8_t kHyperLogLogRegisterCount registers pointed by 'registers_max'. */
 void HllMerge(std::vector<uint8_t> *registers_max, const std::vector<uint8_t> &registers) {
   uint8_t val = 0, max_val = 0;
 
