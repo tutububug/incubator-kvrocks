@@ -104,7 +104,7 @@ uint8_t HllPatLen(const std::vector<uint8_t> &element, uint32_t *register_index)
   index = hash & kHyperLogLogRegisterCountMask;      /* Register index. */
   hash >>= kHyperLogLogRegisterCountPow;             /* Remove bits used to address the register. */
   hash |= ((uint64_t)1 << kHyperLogLogHashBitCount); /* Make sure the loop terminates
-                                     and count will be <= Q+1. */
+                                     and count will be <= kHyperLogLogHashBitCount+1. */
   bit = 1;
   count = 1; /* Initialized to 1 since we count the "00000...1" pattern. */
   while ((hash & bit) == 0) {
