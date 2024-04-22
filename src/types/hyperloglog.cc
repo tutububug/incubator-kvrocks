@@ -61,8 +61,12 @@ void HllDenseGetRegister(uint8_t *val, uint8_t *registers, uint32_t index) {
   uint32_t byte = index * kHyperLogLogBits / 8;
   uint8_t fb = index * kHyperLogLogBits & 7;
   uint8_t fb8 = 8 - fb;
-  uint8_t b0 = registers[byte];
-  uint8_t b1 = registers[byte + 1];
+  uint8_t b0 = 0;
+  uint8_t b1 = 0;
+  b0 = registers[byte];
+  if (fb > 8-kHyperLogLogBits) {
+    b1 = registers[byte + 1];
+  }
   *val = ((b0 >> fb) | (b1 << fb8)) & kHyperLogLogRegisterMax;
 }
 
@@ -75,8 +79,10 @@ void HllDenseSetRegister(uint8_t *registers, uint32_t index, uint8_t val) {
   uint8_t v = val;
   registers[byte] &= ~(kHyperLogLogRegisterMax << fb);
   registers[byte] |= v << fb;
-  registers[byte + 1] &= ~(kHyperLogLogRegisterMax >> fb8);
-  registers[byte + 1] |= v >> fb8;
+  if (fb > 8-kHyperLogLogBits) {
+    registers[byte + 1] &= ~(kHyperLogLogRegisterMax >> fb8);
+    registers[byte + 1] |= v >> fb8;
+  }
 }
 
 /* ========================= HyperLogLog algorithm  ========================= */
