@@ -47,7 +47,7 @@ rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice>
   Bitmap::SegmentCacheStore cache(storage_, metadata_cf_handle_, ns_key, &metadata);
   for (const auto &element : elements) {
     uint32_t register_index = 0;
-    auto ele_str = element.ToString();
+    std::string_view ele_str = element.ToString();
     std::vector<uint8_t> ele(ele_str.begin(), ele_str.end());
     uint8_t count = HllPatLen(ele, &register_index);
     uint32_t segment_index = register_index / kHyperLogLogRegisterCountPerSegment;
@@ -59,9 +59,14 @@ rocksdb::Status HyperLogLog::Add(const Slice &user_key, const std::vector<Slice>
     if (segment->size() == 0) {
       segment->resize(kHyperLogLogRegisterBytesPerSegment, 0);
     }
+    if (segment->size() != kHyperLogLogRegisterBytesPerSegment) {
+      return rocksdb::Status::Corruption(
+          "insufficient segment length: expect=" + std::to_string(kHyperLogLogRegisterBytesPerSegment) +
+          ", actual=" + std::to_string(val.size()));
+    }
 
     uint8_t old_count = 0;
-    HllDenseGetRegister(&old_count, reinterpret_cast<uint8_t *>(segment->data()), register_index_in_segment);
+    old_count = HllDenseGetRegister(reinterpret_cast<uint8_t *>(segment->data()), register_index_in_segment);
     if (count > old_count) {
       HllDenseSetRegister(reinterpret_cast<uint8_t *>(segment->data()), register_index_in_segment, count);
       *ret = 1;
@@ -132,13 +137,13 @@ rocksdb::Status HyperLogLog::getRegisters(const Slice &user_key, std::vector<uin
   for (iter->Seek(prefix); iter->Valid() && iter->key().starts_with(prefix); iter->Next()) {
     InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
 
-    int register_index = std::stoi(ikey.GetSubKey().ToString());
+    int register_index = ParseInt(ikey.GetSubKey().ToString());
     if (register_index / kHyperLogLogRegisterCountPerSegment < 0 ||
         register_index / kHyperLogLogRegisterCountPerSegment >= kHyperLogLogSegmentCount ||
         register_index % kHyperLogLogRegisterCountPerSegment != 0) {
       return rocksdb::Status::Corruption("invalid subkey index: idx=" + ikey.GetSubKey().ToString());
     }
-    auto val = iter->value().ToString();
+    std::string_view val = iter->value().ToString();
     if (val.size() != kHyperLogLogRegisterBytesPerSegment) {
       return rocksdb::Status::Corruption(
           "insufficient length subkey value size: expect=" + std::to_string(kHyperLogLogRegisterBytesPerSegment) +
