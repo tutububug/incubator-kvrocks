@@ -57,7 +57,7 @@
 
 /* Store the value of the register at position 'index' into variable 'val'.
  * 'registers' is an array of unsigned bytes. */
-uint8_t HllDenseGetRegister(uint8_t *registers, uint32_t index) {
+uint8_t HllDenseGetRegister(const uint8_t *registers, uint32_t index) {
   uint32_t byte = index * kHyperLogLogBits / 8;
   uint8_t fb = index * kHyperLogLogBits & 7;
   uint8_t fb8 = 8 - fb;
@@ -125,7 +125,7 @@ void HllDenseRegHisto(const uint8_t *registers, int *reghisto) {
   /* Redis default is to use 16384 registers 6 bits each. The code works
    * with other values by modifying the defines, but for our target value
    * we take a faster path with unrolled loops. */
-  uint8_t *r = registers;
+  auto r = const_cast<uint8_t *>(registers);
   unsigned long r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, r6 = 0, r7 = 0, r8 = 0, r9 = 0, r10 = 0, r11 = 0,
                 r12 = 0, r13 = 0, r14 = 0, r15 = 0;
   for (auto j = 0; j < 1024; j++) {
