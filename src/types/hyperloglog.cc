@@ -130,22 +130,22 @@ void HllDenseRegHisto(const uint8_t *registers, int *reghisto) {
                 r12 = 0, r13 = 0, r14 = 0, r15 = 0;
   for (auto j = 0; j < 1024; j++) {
     /* Handle 16 registers per iteration. */
-    r0 = r[0] & kHyperloglogRegisterMax;
-    r1 = (r[0] >> 6 | r[1] << 2) & kHyperloglogRegisterMax;
-    r2 = (r[1] >> 4 | r[2] << 4) & kHyperloglogRegisterMax;
-    r3 = (r[2] >> 2) & kHyperloglogRegisterMax;
-    r4 = r[3] & kHyperloglogRegisterMax;
-    r5 = (r[3] >> 6 | r[4] << 2) & kHyperloglogRegisterMax;
-    r6 = (r[4] >> 4 | r[5] << 4) & kHyperloglogRegisterMax;
-    r7 = (r[5] >> 2) & kHyperloglogRegisterMax;
-    r8 = r[6] & kHyperloglogRegisterMax;
-    r9 = (r[6] >> 6 | r[7] << 2) & kHyperloglogRegisterMax;
-    r10 = (r[7] >> 4 | r[8] << 4) & kHyperloglogRegisterMax;
-    r11 = (r[8] >> 2) & kHyperloglogRegisterMax;
-    r12 = r[9] & kHyperloglogRegisterMax;
-    r13 = (r[9] >> 6 | r[10] << 2) & kHyperloglogRegisterMax;
-    r14 = (r[10] >> 4 | r[11] << 4) & kHyperloglogRegisterMax;
-    r15 = (r[11] >> 2) & kHyperloglogRegisterMax;
+    r0 = r[0] & kHyperLogLogRegisterMax;
+    r1 = (r[0] >> 6 | r[1] << 2) & kHyperLogLogRegisterMax;
+    r2 = (r[1] >> 4 | r[2] << 4) & kHyperLogLogRegisterMax;
+    r3 = (r[2] >> 2) & kHyperLogLogRegisterMax;
+    r4 = r[3] & kHyperLogLogRegisterMax;
+    r5 = (r[3] >> 6 | r[4] << 2) & kHyperLogLogRegisterMax;
+    r6 = (r[4] >> 4 | r[5] << 4) & kHyperLogLogRegisterMax;
+    r7 = (r[5] >> 2) & kHyperLogLogRegisterMax;
+    r8 = r[6] & kHyperLogLogRegisterMax;
+    r9 = (r[6] >> 6 | r[7] << 2) & kHyperLogLogRegisterMax;
+    r10 = (r[7] >> 4 | r[8] << 4) & kHyperLogLogRegisterMax;
+    r11 = (r[8] >> 2) & kHyperLogLogRegisterMax;
+    r12 = r[9] & kHyperLogLogRegisterMax;
+    r13 = (r[9] >> 6 | r[10] << 2) & kHyperLogLogRegisterMax;
+    r14 = (r[10] >> 4 | r[11] << 4) & kHyperLogLogRegisterMax;
+    r15 = (r[11] >> 2) & kHyperLogLogRegisterMax;
 
     reghisto[r0]++;
     reghisto[r1]++;
