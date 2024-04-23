@@ -116,9 +116,6 @@ TEST_F(RedisHyperLogLogTest, PFCOUNT_multiple_keys_merge_returns_cardinality_of_
   auto card = static_cast<double>(cards[0] + cards[1] + cards[2]);
   auto realcard = static_cast<double>(realcard_vec.size());
   double left = std::abs(card - realcard);
-  // TODO when 'right = card / 100 * 5', the test run failed that the ABS is
-  // a little larger than 'card * 0.05' (left : 149, right: 146.30000000000001).
-  // Randomize elements may cause larger error.
-  double right = card / 100 * 5.1;
+  double right = card / 100 * 5;
   ASSERT_TRUE(left < right) << "left : " << left << ", right: " << right;
 }
